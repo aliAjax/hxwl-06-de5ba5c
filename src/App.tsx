@@ -1,4 +1,34 @@
+import React, { useState, useMemo, ChangeEvent, FormEvent } from "react";
 import "./styles.css";
+
+interface ObservationFormData {
+  sampleName: string;
+  sampleType: string;
+  stainingMethod: string;
+  magnification: string;
+  observedStructure: string;
+  fieldDescription: string;
+}
+
+interface ObservationRecord {
+  id: string;
+  sampleName: string;
+  sampleType: string;
+  stainingMethod: string;
+  magnification: string;
+  observedStructure: string;
+  fieldDescription: string;
+  createdAt: string;
+}
+
+interface FormErrors {
+  sampleName?: string;
+  sampleType?: string;
+  stainingMethod?: string;
+  magnification?: string;
+  observedStructure?: string;
+  fieldDescription?: string;
+}
 
 const project = {
   "id": "hxwl-06",
@@ -30,19 +60,20 @@ const project = {
     "血液涂片"
   ],
   "fields": [
-    "样本名称",
-    "样本类型",
-    "染色方式",
-    "放大倍数",
-    "观察结构",
-    "视野描述"
-  ],
-  "records": [
+    { key: "sampleName", label: "样本名称", required: true },
+    { key: "sampleType", label: "样本类型", required: true },
+    { key: "stainingMethod", label: "染色方式", required: true },
+    { key: "magnification", label: "放大倍数", required: true, pattern: /^\d+x$/i },
+    { key: "observedStructure", label: "观察结构", required: true },
+    { key: "fieldDescription", label: "视野描述", required: false }
+  ] as const,
+  "initialRecords": [
     [
       "洋葱表皮",
       "植物组织",
       "碘液",
       "400x",
+      "细胞壁",
       "细胞壁清晰，细胞核可见"
     ],
     [
@@ -50,6 +81,7 @@ const project = {
       "血液涂片",
       "瑞氏染色",
       "1000x",
+      "红细胞",
       "红细胞分布均匀"
     ],
     [
@@ -57,6 +89,7 @@ const project = {
       "微生物",
       "活体观察",
       "200x",
+      "纤毛",
       "纤毛运动明显"
     ]
   ]
@@ -74,11 +107,92 @@ function MetricCard({ label, value, index }: { label: string; value: string; ind
   );
 }
 
+const initialRecords: ObservationRecord[] = project.initialRecords.map((rec, idx) => ({
+  id: `record-${Date.now()}-${idx}`,
+  sampleName: rec[0],
+  sampleType: rec[1],
+  stainingMethod: rec[2],
+  magnification: rec[3],
+  observedStructure: rec[4],
+  fieldDescription: rec[5],
+  createdAt: new Date(Date.now() - idx * 86400000).toISOString()
+}));
+
+const initialFormData: ObservationFormData = {
+  sampleName: "",
+  sampleType: "",
+  stainingMethod: "",
+  magnification: "",
+  observedStructure: "",
+  fieldDescription: ""
+};
+
 function App() {
-  const values = project.metrics.map((metric: string, index: number) => {
-    const base = [84, 12, 31, 7][index % 4];
-    return String(base + index * 3);
-  });
+  const [formData, setFormData] = useState<ObservationFormData>(initialFormData);
+  const [records, setRecords] = useState<ObservationRecord[]>(initialRecords);
+  const [errors, setErrors] = useState<FormErrors>({});
+
+  const metrics = useMemo(() => {
+    const uniqueSamples = new Set(records.map(r => r.sampleName)).size;
+    const totalRecords = records.length;
+    const uniqueStains = new Set(records.map(r => r.stainingMethod)).size;
+    const uniqueStructures = new Set(records.map(r => r.observedStructure)).size;
+    return [
+      String(uniqueSamples),
+      String(totalRecords),
+      String(uniqueStains),
+      String(uniqueStructures)
+    ];
+  }, [records]);
+
+  const handleInputChange = (e: ChangeEvent<HTMLInputElement>) => {
+    const { name, value } = e.target;
+    setFormData(prev => ({ ...prev, [name]: value }));
+    if (errors[name as keyof FormErrors]) {
+      setErrors(prev => ({ ...prev, [name]: undefined }));
+    }
+  };
+
+  const validateForm = (): boolean => {
+    const newErrors: FormErrors = {};
+
+    project.fields.forEach(field => {
+      const key = field.key as keyof ObservationFormData;
+      const value = formData[key];
+
+      if (field.required && !value.trim()) {
+        newErrors[key] = `${field.label}为必填项`;
+      }
+
+      if (field.pattern && value.trim() && !field.pattern.test(value)) {
+        newErrors[key] = `${field.label}格式应为 数字+x，如 100x、400x`;
+      }
+    });
+
+    setErrors(newErrors);
+    return Object.keys(newErrors).length === 0;
+  };
+
+  const handleSubmit = (e: FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
+
+    if (!validateForm()) return;
+
+    const newRecord: ObservationRecord = {
+      id: `record-${Date.now()}`,
+      sampleName: formData.sampleName.trim(),
+      sampleType: formData.sampleType.trim(),
+      stainingMethod: formData.stainingMethod.trim(),
+      magnification: formData.magnification.trim().toLowerCase(),
+      observedStructure: formData.observedStructure.trim(),
+      fieldDescription: formData.fieldDescription.trim(),
+      createdAt: new Date().toISOString()
+    };
+
+    setRecords(prev => [newRecord, ...prev]);
+    setFormData(initialFormData);
+    setErrors({});
+  };
 
   return (
     <main className="app-shell">
@@ -96,7 +210,7 @@ function App() {
 
       <section className="metrics-grid">
         {project.metrics.map((metric: string, index: number) => (
-          <MetricCard key={metric} label={metric} value={values[index]} index={index} />
+          <MetricCard key={metric} label={metric} value={metrics[index]} index={index} />
         ))}
       </section>
 
@@ -120,36 +234,52 @@ function App() {
           <div className="section-heading">
             <div>
               <p>{project.domain}</p>
-              <h2>记录字段</h2>
+              <h2>观察记录创建</h2>
             </div>
-            <button className="primary-action">新增记录</button>
           </div>
-          <div className="field-grid">
-            {project.fields.map((field: string) => (
-              <label key={field}>
-                <span>{field}</span>
-                <input placeholder={"填写" + field} />
+          <form onSubmit={handleSubmit} className="field-grid">
+            {project.fields.map(field => (
+              <label key={field.key} className={errors[field.key as keyof FormErrors] ? "field-error" : ""}>
+                <span>
+                  {field.label}
+                  {field.required && <em className="required-mark">*</em>}
+                </span>
+                <input
+                  name={field.key}
+                  value={formData[field.key as keyof ObservationFormData]}
+                  onChange={handleInputChange}
+                  placeholder={"填写" + field.label + (field.key === "magnification" ? "（如 400x）" : "")}
+                />
+                {errors[field.key as keyof FormErrors] && (
+                  <small className="error-text">{errors[field.key as keyof FormErrors]}</small>
+                )}
               </label>
             ))}
-          </div>
+            <div className="form-actions">
+              <button type="submit" className="primary-action">提交记录</button>
+            </div>
+          </form>
         </section>
       </section>
 
       <section className="records panel">
         <div className="section-heading">
           <div>
-            <p>示例数据</p>
+            <p>数据</p>
             <h2>近期记录</h2>
           </div>
           <button>导出摘要</button>
         </div>
         <div className="record-list">
-          {project.records.map((record: string[], index: number) => (
-            <article key={record.join("-")} className="record-card">
+          {records.map((record, index) => (
+            <article key={record.id} className="record-card">
               <div className="record-index">{String(index + 1).padStart(2, "0")}</div>
               <div>
-                <h3>{record[0]}</h3>
-                <p>{record.slice(1).join(" · ")}</p>
+                <h3>{record.sampleName}</h3>
+                <p>
+                  {record.sampleType} · {record.stainingMethod} · {record.magnification} · {record.observedStructure}
+                  {record.fieldDescription && ` · ${record.fieldDescription}`}
+                </p>
               </div>
             </article>
           ))}

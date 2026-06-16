@@ -260,6 +260,32 @@ input {
   line-height: 1.6;
 }
 
+.required-mark {
+  color: #e11d48;
+  font-style: normal;
+  margin-left: 3px;
+  font-weight: 700;
+}
+
+.field-error input {
+  border-color: #e11d48;
+  background: #fef2f2;
+}
+
+.error-text {
+  color: #e11d48;
+  font-size: 12px;
+  margin-top: -4px;
+  display: block;
+}
+
+.form-actions {
+  grid-column: 1 / -1;
+  display: flex;
+  justify-content: flex-end;
+  padding-top: 8px;
+}
+
 @media (max-width: 860px) {
   .hero,
   .workspace,
