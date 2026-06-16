@@ -1,24 +1,14 @@
-import React, { useState, useMemo, ChangeEvent, FormEvent } from "react";
+import React, { useState, useMemo, useEffect, useRef, ChangeEvent, FormEvent } from "react";
 import "./styles.css";
+import {
+  observationDb,
+  getInitialSamples,
+  isIndexedDBSupported,
+  type Sample,
+  type MagnificationRecord
+} from "./db";
 
 const MAGNIFICATION_GROUPS = ["100x", "200x", "400x", "1000x"] as const;
-
-interface MagnificationRecord {
-  id: string;
-  magnification: string;
-  observedStructure: string;
-  fieldDescription: string;
-  createdAt: string;
-}
-
-interface Sample {
-  id: string;
-  sampleName: string;
-  sampleType: string;
-  stainingMethod: string;
-  createdAt: string;
-  magnifications: MagnificationRecord[];
-}
 
 interface SampleFormData {
   sampleName: string;
@@ -63,15 +53,7 @@ interface ObservationTemplate {
   icon: string;
 }
 
-interface LegacyRecord {
-  sampleName: string;
-  sampleType: string;
-  stainingMethod: string;
-  magnification: string;
-  observedStructure: string;
-  fieldDescription: string;
-  createdAt: string;
-}
+
 
 interface MagnificationGroup {
   group: string;
@@ -256,45 +238,6 @@ const groupMagnifications = (magnifications: MagnificationRecord[]): Magnificati
     records: groups.get(group) as MagnificationRecord[]
   }));
 };
-
-const migrateToSamples = (records: LegacyRecord[]): Sample[] => {
-  const sampleMap = new Map<string, Sample>();
-  records.forEach((record, index) => {
-    const magnificationRecord: MagnificationRecord = {
-      id: `mag-init-${index}`,
-      magnification: record.magnification.toLowerCase(),
-      observedStructure: record.observedStructure,
-      fieldDescription: record.fieldDescription,
-      createdAt: record.createdAt
-    };
-    const existing = sampleMap.get(record.sampleName);
-    if (existing) {
-      existing.magnifications.push(magnificationRecord);
-    } else {
-      sampleMap.set(record.sampleName, {
-        id: `sample-init-${index}`,
-        sampleName: record.sampleName,
-        sampleType: record.sampleType,
-        stainingMethod: record.stainingMethod,
-        createdAt: record.createdAt,
-        magnifications: [magnificationRecord]
-      });
-    }
-  });
-  return Array.from(sampleMap.values());
-};
-
-const legacyRecords: LegacyRecord[] = project.initialRecords.map((rec, idx) => ({
-  sampleName: rec[0],
-  sampleType: rec[1],
-  stainingMethod: rec[2],
-  magnification: rec[3],
-  observedStructure: rec[4],
-  fieldDescription: rec[5],
-  createdAt: new Date(Date.now() - idx * 86400000).toISOString()
-}));
-
-const initialSamples: Sample[] = migrateToSamples(legacyRecords);
 
 const initialFormData: SampleFormData = {
   sampleName: "",
@@ -567,11 +510,88 @@ function SampleDetail({
 
 function App() {
   const [formData, setFormData] = useState<SampleFormData>(initialFormData);
-  const [samples, setSamples] = useState<Sample[]>(initialSamples);
+  const [samples, setSamples] = useState<Sample[]>([]);
   const [errors, setErrors] = useState<FormErrors>({});
   const [currentView, setCurrentView] = useState<"list" | "detail">("list");
   const [selectedSampleId, setSelectedSampleId] = useState<string | null>(null);
   const [selectedTemplate, setSelectedTemplate] = useState<string | null>(null);
+  const [dbStatus, setDbStatus] = useState<"init" | "ready" | "error" | "unsupported">("init");
+  const [dbError, setDbError] = useState<string>("");
+  const [isLoading, setIsLoading] = useState(true);
+
+  useEffect(() => {
+    const initDatabase = async () => {
+      try {
+        if (!isIndexedDBSupported()) {
+          setDbStatus("unsupported");
+          setDbError("当前浏览器不支持 IndexedDB，数据将无法持久化保存。刷新页面后数据会丢失。");
+          setSamples(getInitialSamples());
+          setIsLoading(false);
+          return;
+        }
+
+        await observationDb.init();
+        setDbStatus("ready");
+
+        const savedSamples = await observationDb.getAllSamples();
+
+        if (savedSamples.length === 0) {
+          const initialData = getInitialSamples();
+          await observationDb.saveSamples(initialData);
+          setSamples(initialData);
+        } else {
+          setSamples(savedSamples);
+        }
+
+        setIsLoading(false);
+      } catch (error) {
+        console.error("Database init error:", error);
+        setDbStatus("error");
+        setDbError(error instanceof Error ? error.message : "数据库初始化失败");
+        setSamples(getInitialSamples());
+        setIsLoading(false);
+      }
+    };
+
+    initDatabase();
+
+    return () => {
+      observationDb.close();
+    };
+  }, []);
+
+  const persistSamples = async (newSamples: Sample[]) => {
+    if (dbStatus !== "ready") {
+      return;
+    }
+    try {
+      await observationDb.saveSamples(newSamples);
+    } catch (error) {
+      console.error("保存数据失败:", error);
+    }
+  };
+
+  const handleClearAllRecords = async () => {
+    const confirmed = window.confirm(
+      "确认清空所有本地记录？此操作将删除所有保存在浏览器中的样本和视野记录，且不可恢复。\n\n清空后会重新加载三条示例记录。"
+    );
+    if (!confirmed) return;
+
+    try {
+      if (dbStatus === "ready") {
+        await observationDb.clearAllSamples();
+        const initialData = getInitialSamples();
+        await observationDb.saveSamples(initialData);
+        setSamples(initialData);
+      } else {
+        const initialData = getInitialSamples();
+        setSamples(initialData);
+      }
+      alert("本地记录已清空，已重新加载示例记录。");
+    } catch (error) {
+      alert("清空记录失败：" + (error instanceof Error ? error.message : "未知错误"));
+    }
+  };
 
   const selectedSample = useMemo(
     () => samples.find(sample => sample.id === selectedSampleId) ?? null,
@@ -668,13 +688,12 @@ function App() {
       createdAt: now
     };
 
+    let newSamples: Sample[];
     if (existingSample) {
-      setSamples(prev =>
-        prev.map(sample =>
-          sample.id === existingSample.id
-            ? { ...sample, magnifications: [...sample.magnifications, newMagnification] }
-            : sample
-        )
+      newSamples = samples.map(sample =>
+        sample.id === existingSample.id
+          ? { ...sample, magnifications: [...sample.magnifications, newMagnification] }
+          : sample
       );
     } else {
       const newSample: Sample = {
@@ -685,8 +704,11 @@ function App() {
         createdAt: now,
         magnifications: [newMagnification]
       };
-      setSamples(prev => [newSample, ...prev]);
+      newSamples = [newSample, ...samples];
     }
+
+    setSamples(newSamples);
+    persistSamples(newSamples);
 
     setFormData(initialFormData);
     setErrors({});
@@ -704,25 +726,25 @@ function App() {
   };
 
   const handleAddMagnification = (sampleId: string, data: MagnificationFormData) => {
-    setSamples(prev =>
-      prev.map(sample =>
-        sample.id === sampleId
-          ? {
-              ...sample,
-              magnifications: [
-                ...sample.magnifications,
-                {
-                  id: `mag-${Date.now()}`,
-                  magnification: data.magnification.trim().toLowerCase(),
-                  observedStructure: data.observedStructure.trim(),
-                  fieldDescription: data.fieldDescription.trim(),
-                  createdAt: new Date().toISOString()
-                }
-              ]
-            }
-          : sample
-      )
+    const newSamples = samples.map(sample =>
+      sample.id === sampleId
+        ? {
+            ...sample,
+            magnifications: [
+              ...sample.magnifications,
+              {
+                id: `mag-${Date.now()}`,
+                magnification: data.magnification.trim().toLowerCase(),
+                observedStructure: data.observedStructure.trim(),
+                fieldDescription: data.fieldDescription.trim(),
+                createdAt: new Date().toISOString()
+              }
+            ]
+          }
+        : sample
     );
+    setSamples(newSamples);
+    persistSamples(newSamples);
   };
 
   const handleUpdateMagnification = (
@@ -730,35 +752,35 @@ function App() {
     magId: string,
     data: MagnificationFormData
   ) => {
-    setSamples(prev =>
-      prev.map(sample =>
-        sample.id === sampleId
-          ? {
-              ...sample,
-              magnifications: sample.magnifications.map(record =>
-                record.id === magId
-                  ? {
-                      ...record,
-                      magnification: data.magnification.trim().toLowerCase(),
-                      observedStructure: data.observedStructure.trim(),
-                      fieldDescription: data.fieldDescription.trim()
-                    }
-                  : record
-              )
-            }
-          : sample
-      )
+    const newSamples = samples.map(sample =>
+      sample.id === sampleId
+        ? {
+            ...sample,
+            magnifications: sample.magnifications.map(record =>
+              record.id === magId
+                ? {
+                    ...record,
+                    magnification: data.magnification.trim().toLowerCase(),
+                    observedStructure: data.observedStructure.trim(),
+                    fieldDescription: data.fieldDescription.trim()
+                  }
+                : record
+            )
+          }
+        : sample
     );
+    setSamples(newSamples);
+    persistSamples(newSamples);
   };
 
   const handleDeleteMagnification = (sampleId: string, magId: string) => {
-    setSamples(prev =>
-      prev.map(sample =>
-        sample.id === sampleId
-          ? { ...sample, magnifications: sample.magnifications.filter(record => record.id !== magId) }
-          : sample
-      )
+    const newSamples = samples.map(sample =>
+      sample.id === sampleId
+        ? { ...sample, magnifications: sample.magnifications.filter(record => record.id !== magId) }
+        : sample
     );
+    setSamples(newSamples);
+    persistSamples(newSamples);
   };
 
   return (
@@ -892,13 +914,32 @@ function App() {
             </section>
           </section>
 
+          {dbStatus !== "ready" && (
+            <section className={`storage-alert ${dbStatus}`}>
+              <div className="storage-alert-icon">
+                {dbStatus === "unsupported" ? "⚠️" : "❌"}
+              </div>
+              <div className="storage-alert-content">
+                <p className="storage-alert-title">
+                  {dbStatus === "unsupported" ? "浏览器不支持本地存储" : "本地存储初始化失败"}
+                </p>
+                <p className="storage-alert-message">{dbError}</p>
+              </div>
+            </section>
+          )}
+
           <section className="records panel">
             <div className="section-heading">
               <div>
                 <p>数据</p>
                 <h2>近期记录</h2>
               </div>
-              <button>导出摘要</button>
+              <div className="record-actions">
+                <button type="button" onClick={handleClearAllRecords} className="danger-action">
+                  清空本地记录
+                </button>
+                <button type="button">导出摘要</button>
+              </div>
             </div>
             <div className="record-list">
               {samples.length === 0 ? (
