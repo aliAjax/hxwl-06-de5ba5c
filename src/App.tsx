@@ -37,6 +37,18 @@ interface ObservationField {
   pattern?: RegExp;
 }
 
+interface ObservationTemplate {
+  id: string;
+  name: string;
+  category: string;
+  sampleType: string;
+  stainingMethod: string;
+  magnification: string;
+  observedStructure: string;
+  description: string;
+  icon: string;
+}
+
 const project = {
   "id": "hxwl-06",
   "port": 5106,
@@ -102,6 +114,53 @@ const project = {
   ]
 };
 
+const observationTemplates: ObservationTemplate[] = [
+  {
+    id: "plant-tissue",
+    name: "植物组织",
+    category: "植物组织",
+    sampleType: "植物组织",
+    stainingMethod: "碘液",
+    magnification: "400x",
+    observedStructure: "细胞壁、细胞核、叶绿体",
+    description: "适用于洋葱表皮、叶片等植物玻片的观察记录",
+    icon: "🌿"
+  },
+  {
+    id: "animal-tissue",
+    name: "动物组织",
+    category: "动物组织",
+    sampleType: "动物组织",
+    stainingMethod: "HE染色",
+    magnification: "400x",
+    observedStructure: "细胞膜、细胞质、细胞核",
+    description: "适用于口腔上皮细胞、肌肉组织等动物玻片",
+    icon: "🫀"
+  },
+  {
+    id: "microorganism",
+    name: "微生物",
+    category: "微生物",
+    sampleType: "微生物",
+    stainingMethod: "革兰氏染色",
+    magnification: "1000x",
+    observedStructure: "细胞壁、鞭毛、荚膜",
+    description: "适用于细菌、真菌等微生物玻片观察",
+    icon: "🦠"
+  },
+  {
+    id: "blood-smear",
+    name: "血液涂片",
+    category: "血液涂片",
+    sampleType: "血液涂片",
+    stainingMethod: "瑞氏染色",
+    magnification: "1000x",
+    observedStructure: "红细胞、白细胞、血小板",
+    description: "适用于人血或动物血涂片的观察记录",
+    icon: "🩸"
+  }
+];
+
 const statusColors = ["status-ok", "status-watch", "status-danger"];
 
 function MetricCard({ label, value, index }: { label: string; value: string; index: number }) {
@@ -140,6 +199,7 @@ function App() {
   const [errors, setErrors] = useState<FormErrors>({});
   const [currentView, setCurrentView] = useState<"list" | "detail">("list");
   const [selectedRecord, setSelectedRecord] = useState<ObservationRecord | null>(null);
+  const [selectedTemplate, setSelectedTemplate] = useState<string | null>(null);
 
   const metrics = useMemo(() => {
     const uniqueSamples = new Set(records.map(r => r.sampleName)).size;
@@ -153,6 +213,18 @@ function App() {
       String(uniqueStructures)
     ];
   }, [records]);
+
+  const handleTemplateSelect = (template: ObservationTemplate) => {
+    setSelectedTemplate(template.id);
+    setFormData(prev => ({
+      ...prev,
+      sampleType: template.sampleType,
+      stainingMethod: template.stainingMethod,
+      magnification: template.magnification,
+      observedStructure: template.observedStructure
+    }));
+    setErrors({});
+  };
 
   const handleInputChange = (e: ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target;
@@ -333,6 +405,31 @@ function App() {
                   <h2>观察记录创建</h2>
                 </div>
               </div>
+
+              <div className="template-library">
+                <div className="template-library-header">
+                  <h3>📚 课堂观察模板库</h3>
+                  <p className="template-hint">选择模板快速填充观察字段，之后可手动修改</p>
+                </div>
+                <div className="template-grid">
+                  {observationTemplates.map(template => (
+                    <article
+                      key={template.id}
+                      className={`template-card ${selectedTemplate === template.id ? "template-selected" : ""}`}
+                      onClick={() => handleTemplateSelect(template)}
+                    >
+                      <div className="template-icon">{template.icon}</div>
+                      <h4>{template.name}</h4>
+                      <p className="template-desc">{template.description}</p>
+                      <div className="template-info">
+                        <span>染色：{template.stainingMethod}</span>
+                        <span>倍数：{template.magnification}</span>
+                      </div>
+                    </article>
+                  ))}
+                </div>
+              </div>
+
               <form onSubmit={handleSubmit} className="field-grid">
                 {project.fields.map(field => (
                   <label key={field.key} className={errors[field.key as keyof FormErrors] ? "field-error" : ""}>
