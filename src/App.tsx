@@ -138,6 +138,8 @@ function App() {
   const [formData, setFormData] = useState<ObservationFormData>(initialFormData);
   const [records, setRecords] = useState<ObservationRecord[]>(initialRecords);
   const [errors, setErrors] = useState<FormErrors>({});
+  const [currentView, setCurrentView] = useState<"list" | "detail">("list");
+  const [selectedRecord, setSelectedRecord] = useState<ObservationRecord | null>(null);
 
   const metrics = useMemo(() => {
     const uniqueSamples = new Set(records.map(r => r.sampleName)).size;
@@ -201,97 +203,192 @@ function App() {
     setErrors({});
   };
 
-  return (
-    <main className="app-shell">
-      <section className="hero">
-        <div>
-          <p className="eyebrow">{project.id} · port {project.port}</p>
-          <h1>{project.title}</h1>
-          <p className="subtitle">{project.subtitle}</p>
-        </div>
-        <div className="stack-card">
-          <span>技术栈</span>
-          <strong>{project.stack}</strong>
-        </div>
-      </section>
+  const handleRecordClick = (record: ObservationRecord) => {
+    setSelectedRecord(record);
+    setCurrentView("detail");
+  };
 
-      <section className="metrics-grid">
-        {project.metrics.map((metric: string, index: number) => (
-          <MetricCard key={metric} label={metric} value={metrics[index]} index={index} />
-        ))}
-      </section>
+  const handleBackToList = () => {
+    setCurrentView("list");
+    setSelectedRecord(null);
+  };
 
-      <section className="workspace">
-        <aside className="panel narrow">
-          <h2>角色</h2>
-          <div className="chips">
-            {project.users.map((user: string) => (
-              <span key={user}>{user}</span>
-            ))}
+  const formatDate = (dateString: string) => {
+    const date = new Date(dateString);
+    return date.toLocaleDateString("zh-CN", {
+      year: "numeric",
+      month: "2-digit",
+      day: "2-digit",
+      hour: "2-digit",
+      minute: "2-digit"
+    });
+  };
+
+  function SampleDetail({ record, onBack }: { record: ObservationRecord; onBack: () => void }) {
+    const detailFields = [
+      { key: "sampleType", label: "样本类型", value: record.sampleType },
+      { key: "stainingMethod", label: "染色方式", value: record.stainingMethod },
+      { key: "magnification", label: "放大倍数", value: record.magnification },
+      { key: "observedStructure", label: "观察结构", value: record.observedStructure }
+    ];
+
+    return (
+      <section className="detail-view">
+        <div className="detail-header panel">
+          <button className="back-button" onClick={onBack}>
+            ← 返回列表
+          </button>
+          <div className="detail-title">
+            <p className="eyebrow">玻片样本详情</p>
+            <h1>{record.sampleName}</h1>
+            <p className="detail-meta">创建时间：{formatDate(record.createdAt)}</p>
           </div>
-          <h2>筛选</h2>
-          <div className="chips muted">
-            {project.filters.map((filter: string) => (
-              <button key={filter}>{filter}</button>
-            ))}
-          </div>
-        </aside>
+        </div>
 
-        <section className="panel">
+        <section className="metrics-grid">
+          <MetricCard label="样本类型" value={record.sampleType} index={0} />
+          <MetricCard label="染色方式" value={record.stainingMethod} index={1} />
+          <MetricCard label="放大倍数" value={record.magnification} index={2} />
+          <MetricCard label="观察结构" value={record.observedStructure} index={0} />
+        </section>
+
+        <section className="panel detail-content">
           <div className="section-heading">
             <div>
-              <p>{project.domain}</p>
-              <h2>观察记录创建</h2>
+              <p>详细信息</p>
+              <h2>样本信息</h2>
             </div>
           </div>
-          <form onSubmit={handleSubmit} className="field-grid">
-            {project.fields.map(field => (
-              <label key={field.key} className={errors[field.key as keyof FormErrors] ? "field-error" : ""}>
-                <span>
-                  {field.label}
-                  {field.required && <em className="required-mark">*</em>}
-                </span>
-                <input
-                  name={field.key}
-                  value={formData[field.key as keyof ObservationFormData]}
-                  onChange={handleInputChange}
-                  placeholder={"填写" + field.label + (field.key === "magnification" ? "（如 400x）" : "")}
-                />
-                {errors[field.key as keyof FormErrors] && (
-                  <small className="error-text">{errors[field.key as keyof FormErrors]}</small>
-                )}
-              </label>
+          <div className="detail-fields">
+            {detailFields.map(field => (
+              <div key={field.key} className="detail-field">
+                <span className="detail-label">{field.label}</span>
+                <strong className="detail-value">{field.value}</strong>
+              </div>
             ))}
-            <div className="form-actions">
-              <button type="submit" className="primary-action">提交记录</button>
+          </div>
+        </section>
+
+        <section className="panel detail-description">
+          <div className="section-heading">
+            <div>
+              <p>观察记录</p>
+              <h2>视野描述</h2>
             </div>
-          </form>
+          </div>
+          <div className="description-content">
+            {record.fieldDescription ? (
+              <p>{record.fieldDescription}</p>
+            ) : (
+              <p className="empty-description">暂无视野描述</p>
+            )}
+          </div>
         </section>
       </section>
+    );
+  }
 
-      <section className="records panel">
-        <div className="section-heading">
-          <div>
-            <p>数据</p>
-            <h2>近期记录</h2>
-          </div>
-          <button>导出摘要</button>
-        </div>
-        <div className="record-list">
-          {records.map((record, index) => (
-            <article key={record.id} className="record-card">
-              <div className="record-index">{String(index + 1).padStart(2, "0")}</div>
-              <div>
-                <h3>{record.sampleName}</h3>
-                <p>
-                  {record.sampleType} · {record.stainingMethod} · {record.magnification} · {record.observedStructure}
-                  {record.fieldDescription && ` · ${record.fieldDescription}`}
-                </p>
+  return (
+    <main className="app-shell">
+      {currentView === "list" ? (
+        <>
+          <section className="hero">
+            <div>
+              <p className="eyebrow">{project.id} · port {project.port}</p>
+              <h1>{project.title}</h1>
+              <p className="subtitle">{project.subtitle}</p>
+            </div>
+            <div className="stack-card">
+              <span>技术栈</span>
+              <strong>{project.stack}</strong>
+            </div>
+          </section>
+
+          <section className="metrics-grid">
+            {project.metrics.map((metric: string, index: number) => (
+              <MetricCard key={metric} label={metric} value={metrics[index]} index={index} />
+            ))}
+          </section>
+
+          <section className="workspace">
+            <aside className="panel narrow">
+              <h2>角色</h2>
+              <div className="chips">
+                {project.users.map((user: string) => (
+                  <span key={user}>{user}</span>
+                ))}
               </div>
-            </article>
-          ))}
-        </div>
-      </section>
+              <h2>筛选</h2>
+              <div className="chips muted">
+                {project.filters.map((filter: string) => (
+                  <button key={filter}>{filter}</button>
+                ))}
+              </div>
+            </aside>
+
+            <section className="panel">
+              <div className="section-heading">
+                <div>
+                  <p>{project.domain}</p>
+                  <h2>观察记录创建</h2>
+                </div>
+              </div>
+              <form onSubmit={handleSubmit} className="field-grid">
+                {project.fields.map(field => (
+                  <label key={field.key} className={errors[field.key as keyof FormErrors] ? "field-error" : ""}>
+                    <span>
+                      {field.label}
+                      {field.required && <em className="required-mark">*</em>}
+                    </span>
+                    <input
+                      name={field.key}
+                      value={formData[field.key as keyof ObservationFormData]}
+                      onChange={handleInputChange}
+                      placeholder={"填写" + field.label + (field.key === "magnification" ? "（如 400x）" : "")}
+                    />
+                    {errors[field.key as keyof FormErrors] && (
+                      <small className="error-text">{errors[field.key as keyof FormErrors]}</small>
+                    )}
+                  </label>
+                ))}
+                <div className="form-actions">
+                  <button type="submit" className="primary-action">提交记录</button>
+                </div>
+              </form>
+            </section>
+          </section>
+
+          <section className="records panel">
+            <div className="section-heading">
+              <div>
+                <p>数据</p>
+                <h2>近期记录</h2>
+              </div>
+              <button>导出摘要</button>
+            </div>
+            <div className="record-list">
+              {records.map((record, index) => (
+                <article
+                  key={record.id}
+                  className="record-card clickable"
+                  onClick={() => handleRecordClick(record)}
+                >
+                  <div className="record-index">{String(index + 1).padStart(2, "0")}</div>
+                  <div>
+                    <h3>{record.sampleName}</h3>
+                    <p>
+                      {record.sampleType} · {record.stainingMethod} · {record.magnification} · {record.observedStructure}
+                      {record.fieldDescription && ` · ${record.fieldDescription}`}
+                    </p>
+                  </div>
+                </article>
+              ))}
+            </div>
+          </section>
+        </>
+      ) : (
+        selectedRecord && <SampleDetail record={selectedRecord} onBack={handleBackToList} />
+      )}
     </main>
   );
 }
