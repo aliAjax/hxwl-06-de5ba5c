@@ -30,6 +30,13 @@ interface FormErrors {
   fieldDescription?: string;
 }
 
+interface ObservationField {
+  key: keyof ObservationFormData;
+  label: string;
+  required: boolean;
+  pattern?: RegExp;
+}
+
 const project = {
   "id": "hxwl-06",
   "port": 5106,
@@ -66,7 +73,7 @@ const project = {
     { key: "magnification", label: "放大倍数", required: true, pattern: /^\d+x$/i },
     { key: "observedStructure", label: "观察结构", required: true },
     { key: "fieldDescription", label: "视野描述", required: false }
-  ] as const,
+  ] satisfies ObservationField[],
   "initialRecords": [
     [
       "洋葱表皮",
