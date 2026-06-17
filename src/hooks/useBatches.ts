@@ -20,8 +20,6 @@ export const useBatches = (parentDbStatus: DbStatus, samples: Sample[]): UseBatc
   const [isLoading, setIsLoading] = useState(true);
   const [dbStatus, setDbStatus] = useState<DbStatus>(parentDbStatus);
   const initializedRef = useRef(false);
-  const samplesRef = useRef(samples);
-  samplesRef.current = samples;
 
   const persistBatches = useCallback(async (newBatches: ObservationBatch[]) => {
     if (dbStatus !== "ready") {
@@ -43,7 +41,6 @@ export const useBatches = (parentDbStatus: DbStatus, samples: Sample[]): UseBatc
       }
 
       if (initializedRef.current) return;
-      initializedRef.current = true;
 
       try {
         const savedBatches = await observationDb.getAllBatches();
@@ -51,8 +48,14 @@ export const useBatches = (parentDbStatus: DbStatus, samples: Sample[]): UseBatc
         if (savedBatches.length === 0) {
           const alreadyInitialized = await observationDb.getMetadata<boolean>("batches.initialized");
 
-          if (!alreadyInitialized && samplesRef.current.length > 0) {
-            const initialBatches = getInitialBatches(samplesRef.current.map(s => s.id));
+          if (!alreadyInitialized && samples.length === 0) {
+            setDbStatus("ready");
+            setIsLoading(false);
+            return;
+          }
+
+          if (!alreadyInitialized) {
+            const initialBatches = getInitialBatches(samples.map(s => s.id));
             if (initialBatches.length > 0) {
               await observationDb.saveBatches(initialBatches);
               await observationDb.setMetadata("batches.initialized", true);
@@ -70,6 +73,7 @@ export const useBatches = (parentDbStatus: DbStatus, samples: Sample[]): UseBatc
           setBatches(savedBatches);
         }
 
+        initializedRef.current = true;
         setDbStatus("ready");
       } catch (error) {
         console.error("批次数据加载失败:", error);
@@ -80,7 +84,7 @@ export const useBatches = (parentDbStatus: DbStatus, samples: Sample[]): UseBatc
     };
 
     initBatches();
-  }, [parentDbStatus]);
+  }, [parentDbStatus, samples]);
 
   const createBatch = useCallback(
     (name: string, description: string, userId: string, userName: string) => {
