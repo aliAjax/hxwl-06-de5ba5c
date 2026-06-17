@@ -1,4 +1,4 @@
-import React, { useMemo, ChangeEvent, FormEvent } from "react";
+import React, { useState, useMemo, ChangeEvent, FormEvent } from "react";
 import type {
   User,
   Sample,
@@ -7,7 +7,8 @@ import type {
   SampleFormData,
   FormErrors,
   ObservationTemplate,
-  QualityCheckResult
+  QualityCheckResult,
+  QualityOverallStatus
 } from "../types";
 import {
   MAGNIFICATION_GROUPS,
@@ -49,6 +50,58 @@ export function StudentWorkbench({
   onSampleClick
 }: StudentWorkbenchProps) {
   const mySamples = samples.filter(s => s.studentId === currentUser.id);
+
+  const [filterSampleType, setFilterSampleType] = useState<string>("all");
+  const [filterStainingMethod, setFilterStainingMethod] = useState<string>("all");
+  const [filterQualityStatus, setFilterQualityStatus] = useState<string>("all");
+  const [sortField, setSortField] = useState<"createdAt" | "fieldCount">("createdAt");
+  const [sortOrder, setSortOrder] = useState<"asc" | "desc">("desc");
+
+  const filteredAndSortedSamples = useMemo(() => {
+    let result = [...mySamples];
+
+    if (filterSampleType !== "all") {
+      result = result.filter(s => s.sampleType === filterSampleType);
+    }
+
+    if (filterStainingMethod !== "all") {
+      result = result.filter(s => s.stainingMethod === filterStainingMethod);
+    }
+
+    if (filterQualityStatus !== "all") {
+      result = result.filter(s => {
+        const sampleQuality = getSampleQualityStatus(s);
+        return sampleQuality.overallStatus === filterQualityStatus;
+      });
+    }
+
+    result.sort((a, b) => {
+      if (sortField === "createdAt") {
+        const dateA = new Date(a.createdAt).getTime();
+        const dateB = new Date(b.createdAt).getTime();
+        return sortOrder === "desc" ? dateB - dateA : dateA - dateB;
+      } else {
+        const countA = a.magnifications.length;
+        const countB = b.magnifications.length;
+        return sortOrder === "desc" ? countB - countA : countA - countB;
+      }
+    });
+
+    return result;
+  }, [mySamples, filterSampleType, filterStainingMethod, filterQualityStatus, sortField, sortOrder]);
+
+  const hasActiveFilters =
+    filterSampleType !== "all" ||
+    filterStainingMethod !== "all" ||
+    filterQualityStatus !== "all";
+
+  const handleResetFilters = () => {
+    setFilterSampleType("all");
+    setFilterStainingMethod("all");
+    setFilterQualityStatus("all");
+    setSortField("createdAt");
+    setSortOrder("desc");
+  };
 
   const myMetrics = useMemo(() => {
     const uniqueSamples = mySamples.length;
@@ -215,12 +268,72 @@ export function StudentWorkbench({
             <p>我的数据</p>
             <h2>我的观察记录</h2>
           </div>
+          <div className="student-filters">
+            <select
+              value={filterSampleType}
+              onChange={(e) => setFilterSampleType(e.target.value)}
+              className="filter-select"
+            >
+              <option value="all">全部样本类型</option>
+              {sampleCategories.map(cat => (
+                <option key={cat.id} value={cat.name}>{cat.name}</option>
+              ))}
+            </select>
+            <select
+              value={filterStainingMethod}
+              onChange={(e) => setFilterStainingMethod(e.target.value)}
+              className="filter-select"
+            >
+              <option value="all">全部染色方式</option>
+              {stainingMethods.map(stain => (
+                <option key={stain.id} value={stain.name}>{stain.name}</option>
+              ))}
+            </select>
+            <select
+              value={filterQualityStatus}
+              onChange={(e) => setFilterQualityStatus(e.target.value)}
+              className="filter-select"
+            >
+              <option value="all">全部质量状态</option>
+              <option value="pass">合格</option>
+              <option value="warning">需改进</option>
+              <option value="error">有错误</option>
+            </select>
+            <select
+              value={`${sortField}-${sortOrder}`}
+              onChange={(e) => {
+                const [field, order] = e.target.value.split("-");
+                setSortField(field as "createdAt" | "fieldCount");
+                setSortOrder(order as "asc" | "desc");
+              }}
+              className="filter-select"
+            >
+              <option value="createdAt-desc">创建时间（最新）</option>
+              <option value="createdAt-asc">创建时间（最早）</option>
+              <option value="fieldCount-desc">视野记录数（多→少）</option>
+              <option value="fieldCount-asc">视野记录数（少→多）</option>
+            </select>
+            {hasActiveFilters && (
+              <button type="button" className="reset-filter-btn" onClick={handleResetFilters}>
+                重置筛选
+              </button>
+            )}
+          </div>
         </div>
         <div className="record-list">
           {mySamples.length === 0 ? (
             <p className="empty-description">暂无你的样本记录，请通过上方表单创建。</p>
+          ) : filteredAndSortedSamples.length === 0 ? (
+            <p className="empty-description">
+              没有符合筛选条件的记录，请尝试调整筛选条件。
+              {hasActiveFilters && (
+                <button type="button" className="inline-reset-btn" onClick={handleResetFilters}>
+                  重置筛选
+                </button>
+              )}
+            </p>
           ) : (
-            mySamples.map((sample, index) => {
+            filteredAndSortedSamples.map((sample, index) => {
               const sampleMagStats = MAGNIFICATION_GROUPS.map(mag => ({
                 mag,
                 count: sample.magnifications.filter(r => r.magnification.toLowerCase() === mag).length

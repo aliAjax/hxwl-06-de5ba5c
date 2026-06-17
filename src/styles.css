@@ -2353,3 +2353,58 @@ select {
     padding: 8px;
   }
 }
+
+.student-filters {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  flex-wrap: wrap;
+}
+
+.student-filters .filter-select {
+  min-width: 150px;
+}
+
+.reset-filter-btn {
+  background: #fef3c7;
+  border-color: #f59e0b;
+  color: #92400e;
+  font-weight: 600;
+  min-height: 36px;
+  transition: all 0.2s ease;
+}
+
+.reset-filter-btn:hover {
+  background: #fde68a;
+}
+
+.inline-reset-btn {
+  display: inline-block;
+  margin-left: 8px;
+  padding: 2px 10px;
+  min-height: auto;
+  background: color-mix(in srgb, var(--primary) 8%, #ffffff);
+  border: 1px solid color-mix(in srgb, var(--primary) 30%, var(--border));
+  color: var(--primary);
+  font-size: 12px;
+  font-weight: 600;
+  border-radius: 4px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.inline-reset-btn:hover {
+  background: color-mix(in srgb, var(--primary) 15%, #ffffff);
+}
+
+@media (max-width: 860px) {
+  .student-filters {
+    width: 100%;
+    margin-top: 12px;
+  }
+
+  .student-filters .filter-select {
+    flex: 1;
+    min-width: 140px;
+  }
+}
