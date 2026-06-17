@@ -25,7 +25,7 @@ interface MetadataEntry {
 }
 
 const DB_NAME = "microscope-observation-db";
-const DB_VERSION = 2;
+const DB_VERSION = 3;
 const STORE_SAMPLES = "samples";
 const STORE_METADATA = "metadata";
 
@@ -139,6 +139,27 @@ export const isIndexedDBSupported = (): boolean => {
   return typeof window !== "undefined" && "indexedDB" in window;
 };
 
+const builtInSampleOwners: Record<string, Pick<User, "id" | "name">> = {
+  "洋葱表皮": { id: "student-1", name: "张三" },
+  "人血涂片": { id: "student-2", name: "李四" },
+  "草履虫": { id: "student-3", name: "王五" }
+};
+
+const inferBuiltInSampleOwner = (sample: Sample): Pick<User, "id" | "name"> | undefined => {
+  const byName = builtInSampleOwners[sample.sampleName];
+  if (byName) {
+    return byName;
+  }
+
+  if (sample.sampleType === "血液涂片" && sample.stainingMethod === "瑞氏染色") {
+    return builtInSampleOwners["人血涂片"];
+  }
+  if (sample.sampleType === "微生物" && sample.stainingMethod === "活体观察") {
+    return builtInSampleOwners["草履虫"];
+  }
+  return undefined;
+};
+
 export class ObservationDatabase {
   private db: IDBDatabase | null = null;
   private initPromise: Promise<void> | null = null;
@@ -179,6 +200,10 @@ export class ObservationDatabase {
           const tx = (event.target as IDBOpenDBRequest).transaction;
           this.migrateFrom1To2(db, tx);
         }
+        if (oldVersion < 3) {
+          const tx = (event.target as IDBOpenDBRequest).transaction;
+          this.migrateFrom2To3(db, tx);
+        }
       };
     });
 
@@ -188,9 +213,7 @@ export class ObservationDatabase {
   private migrateFrom0To1(db: IDBDatabase): void {
     if (!db.objectStoreNames.contains(STORE_SAMPLES)) {
       const store = db.createObjectStore(STORE_SAMPLES, { keyPath: "id" });
-      store.createIndex("sampleName", "sampleName", { unique: false });
-      store.createIndex("createdAt", "createdAt", { unique: false });
-      store.createIndex("studentId", "studentId", { unique: false });
+      this.ensureSampleIndexes(store);
     }
   }
 
@@ -201,30 +224,65 @@ export class ObservationDatabase {
 
     if (db.objectStoreNames.contains(STORE_SAMPLES) && transaction) {
       const store = transaction.objectStore(STORE_SAMPLES);
-      const request = store.getAll();
-      request.onsuccess = () => {
-        const samples = request.result as Sample[];
-        samples.forEach(sample => {
-          let changed = false;
-          sample.magnifications = sample.magnifications.map(rec => {
-            const lowerMag = rec.magnification.toLowerCase();
-            if (rec.magnification !== lowerMag) {
-              rec.magnification = lowerMag;
-              changed = true;
-            }
-            return rec;
-          });
-          if (!sample.studentId) {
-            sample.studentId = "student-1";
-            sample.studentName = "张三";
+      this.ensureSampleIndexes(store);
+      this.normalizeSavedSamples(store);
+    }
+  }
+
+  private migrateFrom2To3(db: IDBDatabase, transaction?: IDBTransaction | null): void {
+    if (db.objectStoreNames.contains(STORE_SAMPLES) && transaction) {
+      const store = transaction.objectStore(STORE_SAMPLES);
+      this.ensureSampleIndexes(store);
+      this.normalizeSavedSamples(store);
+    }
+  }
+
+  private ensureSampleIndexes(store: IDBObjectStore): void {
+    if (!store.indexNames.contains("sampleName")) {
+      store.createIndex("sampleName", "sampleName", { unique: false });
+    }
+    if (!store.indexNames.contains("createdAt")) {
+      store.createIndex("createdAt", "createdAt", { unique: false });
+    }
+    if (!store.indexNames.contains("studentId")) {
+      store.createIndex("studentId", "studentId", { unique: false });
+    }
+  }
+
+  private normalizeSavedSamples(store: IDBObjectStore): void {
+    const request = store.getAll();
+    request.onsuccess = () => {
+      const samples = request.result as Sample[];
+      samples.forEach(sample => {
+        let changed = false;
+        const inferredOwner = inferBuiltInSampleOwner(sample);
+
+        sample.magnifications = sample.magnifications.map(rec => {
+          const lowerMag = rec.magnification.toLowerCase();
+          if (rec.magnification !== lowerMag) {
+            changed = true;
+            return { ...rec, magnification: lowerMag };
+          }
+          return rec;
+        });
+
+        if (inferredOwner) {
+          if (sample.studentId !== inferredOwner.id || sample.studentName !== inferredOwner.name) {
+            sample.studentId = inferredOwner.id;
+            sample.studentName = inferredOwner.name;
             changed = true;
           }
-          if (changed) {
-            store.put(sample);
-          }
-        });
-      };
-    }
+        } else if (!sample.studentId) {
+          sample.studentId = "student-1";
+          sample.studentName = "张三";
+          changed = true;
+        }
+
+        if (changed) {
+          store.put(sample);
+        }
+      });
+    };
   }
 
   private ensureInitialized(): void {
