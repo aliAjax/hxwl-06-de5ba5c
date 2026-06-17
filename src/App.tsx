@@ -5,7 +5,14 @@ import {
   getInitialSamples,
   isIndexedDBSupported,
   type Sample,
-  type MagnificationRecord
+  type MagnificationRecord,
+  type User,
+  type Role,
+  type SampleCategory,
+  type StainingMethod,
+  defaultUsers,
+  defaultSampleCategories,
+  defaultStainingMethods
 } from "./db";
 
 const MAGNIFICATION_GROUPS = ["100x", "200x", "400x", "1000x"] as const;
@@ -17,12 +24,23 @@ interface SampleFormData {
   magnification: string;
   observedStructure: string;
   fieldDescription: string;
+  studentId: string;
+  studentName: string;
 }
 
 interface MagnificationFormData {
   magnification: string;
   observedStructure: string;
   fieldDescription: string;
+}
+
+type WorkbenchView = "workbench" | "observation";
+
+interface RoleConfig {
+  role: Role;
+  label: string;
+  icon: string;
+  description: string;
 }
 
 interface FormErrors {
@@ -59,6 +77,27 @@ interface MagnificationGroup {
   group: string;
   records: MagnificationRecord[];
 }
+
+const ROLE_CONFIGS: RoleConfig[] = [
+  {
+    role: "student",
+    label: "学生",
+    icon: "👨‍🎓",
+    description: "新增和查看自己的观察记录"
+  },
+  {
+    role: "teacher",
+    label: "实验课教师",
+    icon: "👨‍🏫",
+    description: "查看全班记录并标记重点结构是否合格"
+  },
+  {
+    role: "admin",
+    label: "实验管理员",
+    icon: "🔧",
+    description: "维护样本分类和染色方式选项"
+  }
+];
 
 const project = {
   "id": "hxwl-06",
@@ -245,7 +284,9 @@ const initialFormData: SampleFormData = {
   stainingMethod: "",
   magnification: "",
   observedStructure: "",
-  fieldDescription: ""
+  fieldDescription: "",
+  studentId: "",
+  studentName: ""
 };
 
 const emptyMagnificationForm: MagnificationFormData = {
@@ -259,13 +300,19 @@ function SampleDetail({
   onBack,
   onAddMagnification,
   onUpdateMagnification,
-  onDeleteMagnification
+  onDeleteMagnification,
+  onToggleQualified,
+  currentRole,
+  currentUserName
 }: {
   sample: Sample;
   onBack: () => void;
   onAddMagnification: (sampleId: string, data: MagnificationFormData) => void;
   onUpdateMagnification: (sampleId: string, magId: string, data: MagnificationFormData) => void;
   onDeleteMagnification: (sampleId: string, magId: string) => void;
+  onToggleQualified?: (sampleId: string, magId: string, qualified: boolean) => void;
+  currentRole: Role;
+  currentUserName: string;
 }) {
   const [showForm, setShowForm] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -275,6 +322,7 @@ function SampleDetail({
   const groups = useMemo(() => groupMagnifications(sample.magnifications), [sample.magnifications]);
 
   const detailFields = [
+    { key: "studentName", label: "学生姓名", value: sample.studentName },
     { key: "sampleType", label: "样本类型", value: sample.sampleType },
     { key: "stainingMethod", label: "染色方式", value: sample.stainingMethod },
     { key: "createdAt", label: "创建时间", value: formatDate(sample.createdAt) },
@@ -396,9 +444,11 @@ function SampleDetail({
             <p>多倍率视野对比</p>
             <h2>倍率视野记录</h2>
           </div>
-          <button type="button" className="primary-action" onClick={handleToggleForm}>
-            {showForm ? "收起表单" : "+ 新增倍率记录"}
-          </button>
+          {currentRole === "student" && (
+            <button type="button" className="primary-action" onClick={handleToggleForm}>
+              {showForm ? "收起表单" : "+ 新增倍率记录"}
+            </button>
+          )}
         </div>
 
         {showForm && (
@@ -474,28 +524,85 @@ function SampleDetail({
                 </div>
                 <div className="group-records">
                   {group.records.map(record => (
-                    <article key={record.id} className="magnification-card">
+                    <article
+                      key={record.id}
+                      className={`magnification-card ${
+                        record.isQualified === true
+                          ? "qualified"
+                          : record.isQualified === false
+                          ? "unqualified"
+                          : ""
+                      }`}
+                    >
                       <div className="magnification-card-head">
-                        <strong>{record.observedStructure}</strong>
+                        <div className="card-title-wrap">
+                          <strong>{record.observedStructure}</strong>
+                          {record.isQualified !== undefined && (
+                            <span
+                              className={`qualification-badge ${
+                                record.isQualified ? "badge-pass" : "badge-fail"
+                              }`}
+                            >
+                              {record.isQualified ? "✓ 合格" : "✗ 不合格"}
+                            </span>
+                          )}
+                        </div>
                         <div className="magnification-actions">
-                          <button type="button" onClick={() => handleEditMagnification(record)}>
-                            编辑
-                          </button>
-                          <button
-                            type="button"
-                            className="danger-action"
-                            onClick={() => handleDeleteMagnification(record)}
-                          >
-                            删除
-                          </button>
+                          {currentRole === "teacher" && onToggleQualified && (
+                            <>
+                              <button
+                                type="button"
+                                className={`qualified-action ${
+                                  record.isQualified === true ? "active-pass" : ""
+                                }`}
+                                onClick={() =>
+                                  onToggleQualified(sample.id, record.id, true)
+                                }
+                              >
+                                标记合格
+                              </button>
+                              <button
+                                type="button"
+                                className={`unqualified-action ${
+                                  record.isQualified === false ? "active-fail" : ""
+                                }`}
+                                onClick={() =>
+                                  onToggleQualified(sample.id, record.id, false)
+                                }
+                              >
+                                标记不合格
+                              </button>
+                            </>
+                          )}
+                          {currentRole === "student" && (
+                            <>
+                              <button type="button" onClick={() => handleEditMagnification(record)}>
+                                编辑
+                              </button>
+                              <button
+                                type="button"
+                                className="danger-action"
+                                onClick={() => handleDeleteMagnification(record)}
+                              >
+                                删除
+                              </button>
+                            </>
+                          )}
                         </div>
                       </div>
                       <p className="magnification-description">
                         {record.fieldDescription || "暂无视野描述"}
                       </p>
-                      <span className="magnification-time">
-                        记录时间：{formatDate(record.createdAt)}
-                      </span>
+                      <div className="magnification-meta">
+                        <span className="magnification-time">
+                          记录时间：{formatDate(record.createdAt)}
+                        </span>
+                        {record.qualifiedAt && record.reviewedBy && (
+                          <span className="review-info">
+                            评阅人：{record.reviewedBy} · {formatDate(record.qualifiedAt)}
+                          </span>
+                        )}
+                      </div>
                     </article>
                   ))}
                 </div>
@@ -505,6 +612,643 @@ function SampleDetail({
         </div>
       </section>
     </section>
+  );
+}
+
+function RoleSelector({
+  currentRole,
+  currentUser,
+  users,
+  onRoleChange,
+  onUserChange
+}: {
+  currentRole: Role;
+  currentUser: User | null;
+  users: User[];
+  onRoleChange: (role: Role) => void;
+  onUserChange: (user: User) => void;
+}) {
+  const filteredUsers = users.filter(u => u.role === currentRole);
+
+  return (
+    <section className="panel role-selector">
+      <div className="section-heading">
+        <div>
+          <p>角色切换</p>
+          <h2>实验角色工作台</h2>
+        </div>
+      </div>
+      <div className="role-cards">
+        {ROLE_CONFIGS.map(config => (
+          <article
+            key={config.role}
+            className={`role-card ${currentRole === config.role ? "role-active" : ""}`}
+            onClick={() => {
+              onRoleChange(config.role);
+              const firstUser = users.find(u => u.role === config.role);
+              if (firstUser) onUserChange(firstUser);
+            }}
+          >
+            <div className="role-icon">{config.icon}</div>
+            <h3>{config.label}</h3>
+            <p>{config.description}</p>
+          </article>
+        ))}
+      </div>
+      <div className="user-select-wrap">
+        <label>
+          <span>选择用户（模拟登录）</span>
+          <select
+            value={currentUser?.id || ""}
+            onChange={(e) => {
+              const user = users.find(u => u.id === e.target.value);
+              if (user) onUserChange(user);
+            }}
+          >
+            {filteredUsers.map(user => (
+              <option key={user.id} value={user.id}>
+                {user.name}（{ROLE_CONFIGS.find(r => r.role === user.role)?.label}）
+              </option>
+            ))}
+          </select>
+        </label>
+        {currentUser && (
+          <div className="current-user-info">
+            <span className="user-avatar">
+              {ROLE_CONFIGS.find(r => r.role === currentUser.role)?.icon}
+            </span>
+            <div>
+              <strong>{currentUser.name}</strong>
+              <p>当前身份：{ROLE_CONFIGS.find(r => r.role === currentUser.role)?.label}</p>
+            </div>
+          </div>
+        )}
+      </div>
+    </section>
+  );
+}
+
+function StudentWorkbench({
+  currentUser,
+  samples,
+  sampleCategories,
+  stainingMethods,
+  formData,
+  errors,
+  selectedTemplate,
+  onTemplateSelect,
+  onInputChange,
+  onSubmit,
+  onSampleClick
+}: {
+  currentUser: User;
+  samples: Sample[];
+  sampleCategories: SampleCategory[];
+  stainingMethods: StainingMethod[];
+  formData: SampleFormData;
+  errors: FormErrors;
+  selectedTemplate: string | null;
+  onTemplateSelect: (template: ObservationTemplate) => void;
+  onInputChange: (e: ChangeEvent<HTMLInputElement | HTMLSelectElement>) => void;
+  onSubmit: (e: FormEvent<HTMLFormElement>) => void;
+  onSampleClick: (sample: Sample) => void;
+}) {
+  const mySamples = samples.filter(s => s.studentId === currentUser.id);
+
+  const myMetrics = useMemo(() => {
+    const uniqueSamples = mySamples.length;
+    const totalFields = mySamples.reduce((sum, sample) => sum + sample.magnifications.length, 0);
+    const qualifiedFields = mySamples.reduce(
+      (sum, sample) =>
+        sum + sample.magnifications.filter(r => r.isQualified === true).length,
+      0
+    );
+    const pendingFields = mySamples.reduce(
+      (sum, sample) =>
+        sum + sample.magnifications.filter(r => r.isQualified === undefined).length,
+      0
+    );
+    return [
+      String(uniqueSamples),
+      String(totalFields),
+      String(qualifiedFields),
+      String(pendingFields)
+    ];
+  }, [mySamples]);
+
+  const studentMetricsLabels = ["我的样本", "视野记录", "已合格", "待评阅"];
+
+  return (
+    <>
+      <section className="hero student-hero">
+        <div>
+          <p className="eyebrow">学生工作台</p>
+          <h1>欢迎回来，{currentUser.name}</h1>
+          <p className="subtitle">在这里你可以新增和查看自己的显微镜观察记录</p>
+        </div>
+        <div className="stack-card">
+          <span>当前身份</span>
+          <strong>👨‍🎓 学生</strong>
+        </div>
+      </section>
+
+      <section className="metrics-grid">
+        {studentMetricsLabels.map((label: string, index: number) => (
+          <MetricCard key={label} label={label} value={myMetrics[index]} index={index} />
+        ))}
+      </section>
+
+      <section className="workspace">
+        <aside className="panel narrow">
+          <h2>快捷操作</h2>
+          <div className="chips muted">
+            <button className="primary-action-chip">+ 新建记录</button>
+          </div>
+          <h2>样本分类</h2>
+          <div className="chips">
+            {sampleCategories.map(cat => (
+              <span key={cat.id}>{cat.name}</span>
+            ))}
+          </div>
+        </aside>
+
+        <section className="panel">
+          <div className="section-heading">
+            <div>
+              <p>记录管理</p>
+              <h2>创建观察记录</h2>
+            </div>
+          </div>
+
+          <div className="template-library">
+            <div className="template-library-header">
+              <h3>📚 课堂观察模板库</h3>
+              <p className="template-hint">选择模板快速填充观察字段，之后可手动修改</p>
+            </div>
+            <div className="template-grid">
+              {observationTemplates.map(template => (
+                <article
+                  key={template.id}
+                  className={`template-card ${selectedTemplate === template.id ? "template-selected" : ""}`}
+                  onClick={() => onTemplateSelect(template)}
+                >
+                  <div className="template-icon">{template.icon}</div>
+                  <h4>{template.name}</h4>
+                  <p className="template-desc">{template.description}</p>
+                  <div className="template-info">
+                    <span>染色：{template.stainingMethod}</span>
+                    <span>倍数：{template.magnification}</span>
+                  </div>
+                </article>
+              ))}
+            </div>
+          </div>
+
+          <p className="form-hint">
+            提交后将创建样本并录入第一条倍率视野记录，可在样本详情中继续补充 100x、200x、400x、1000x 等其他倍率观察结果。
+          </p>
+
+          <form onSubmit={onSubmit} className="field-grid">
+            {project.fields.map(field => (
+              <label key={field.key} className={errors[field.key as keyof FormErrors] ? "field-error" : ""}>
+                <span>
+                  {field.label}
+                  {field.required && <em className="required-mark">*</em>}
+                </span>
+                {field.key === "sampleType" ? (
+                  <select
+                    name={field.key}
+                    value={formData[field.key as keyof SampleFormData]}
+                    onChange={onInputChange}
+                  >
+                    <option value="">请选择样本类型</option>
+                    {sampleCategories.map(cat => (
+                      <option key={cat.id} value={cat.name}>{cat.name}</option>
+                    ))}
+                  </select>
+                ) : field.key === "stainingMethod" ? (
+                  <select
+                    name={field.key}
+                    value={formData[field.key as keyof SampleFormData]}
+                    onChange={onInputChange}
+                  >
+                    <option value="">请选择染色方式</option>
+                    {stainingMethods.map(stain => (
+                      <option key={stain.id} value={stain.name}>{stain.name}</option>
+                    ))}
+                  </select>
+                ) : field.key === "magnification" ? (
+                  <>
+                    <input
+                      list="magnification-options"
+                      name={field.key}
+                      value={formData[field.key as keyof SampleFormData]}
+                      onChange={onInputChange}
+                      placeholder={"填写" + field.label + "（如 400x）"}
+                    />
+                    <datalist id="magnification-options">
+                      {MAGNIFICATION_GROUPS.map(option => (
+                        <option key={option} value={option} />
+                      ))}
+                    </datalist>
+                  </>
+                ) : (
+                  <input
+                    name={field.key}
+                    value={formData[field.key as keyof SampleFormData]}
+                    onChange={onInputChange}
+                    placeholder={"填写" + field.label}
+                  />
+                )}
+                {errors[field.key as keyof FormErrors] && (
+                  <small className="error-text">{errors[field.key as keyof FormErrors]}</small>
+                )}
+              </label>
+            ))}
+            <div className="form-actions">
+              <button type="submit" className="primary-action">提交记录</button>
+            </div>
+          </form>
+        </section>
+      </section>
+
+      <section className="records panel">
+        <div className="section-heading">
+          <div>
+            <p>我的数据</p>
+            <h2>我的观察记录</h2>
+          </div>
+        </div>
+        <div className="record-list">
+          {mySamples.length === 0 ? (
+            <p className="empty-description">暂无你的样本记录，请通过上方表单创建。</p>
+          ) : (
+            mySamples.map((sample, index) => {
+              const sampleMagStats = MAGNIFICATION_GROUPS.map(mag => ({
+                mag,
+                count: sample.magnifications.filter(r => r.magnification.toLowerCase() === mag).length
+              })).filter(s => s.count > 0);
+
+              const qualifiedCount = sample.magnifications.filter(r => r.isQualified === true).length;
+              const pendingCount = sample.magnifications.filter(r => r.isQualified === undefined).length;
+
+              return (
+                <article
+                  key={sample.id}
+                  className="record-card clickable"
+                  onClick={() => onSampleClick(sample)}
+                >
+                  <div className="record-index">{String(index + 1).padStart(2, "0")}</div>
+                  <div className="record-summary">
+                    <h3>{sample.sampleName}</h3>
+                    <p>
+                      {sample.sampleType} · {sample.stainingMethod} · 视野记录 {sample.magnifications.length} 条
+                    </p>
+                    <div className="record-status-chips">
+                      {qualifiedCount > 0 && (
+                        <span className="record-mag-chip pass-chip">合格 × {qualifiedCount}</span>
+                      )}
+                      {pendingCount > 0 && (
+                        <span className="record-mag-chip pending-chip">待评阅 × {pendingCount}</span>
+                      )}
+                    </div>
+                    {sampleMagStats.length > 0 && (
+                      <div className="record-mag-chips">
+                        {sampleMagStats.map(stat => (
+                          <span key={stat.mag} className="record-mag-chip">
+                            {stat.mag} × {stat.count}
+                          </span>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                  <span className="record-badge">{sample.magnifications.length}</span>
+                </article>
+              );
+            })
+          )}
+        </div>
+      </section>
+    </>
+  );
+}
+
+function TeacherWorkbench({
+  currentUser,
+  samples,
+  users,
+  onSampleClick,
+  onToggleQualified
+}: {
+  currentUser: User;
+  samples: Sample[];
+  users: User[];
+  onSampleClick: (sample: Sample) => void;
+  onToggleQualified: (sampleId: string, magId: string, qualified: boolean) => void;
+}) {
+  const [selectedStudentId, setSelectedStudentId] = useState<string>("all");
+
+  const students = users.filter(u => u.role === "student");
+
+  const filteredSamples = useMemo(() => {
+    if (selectedStudentId === "all") return samples;
+    return samples.filter(s => s.studentId === selectedStudentId);
+  }, [samples, selectedStudentId]);
+
+  const classMetrics = useMemo(() => {
+    const totalStudents = students.length;
+    const totalSamples = samples.length;
+    const totalFields = samples.reduce((sum, s) => sum + s.magnifications.length, 0);
+    const qualifiedFields = samples.reduce(
+      (sum, s) => sum + s.magnifications.filter(r => r.isQualified === true).length,
+      0
+    );
+    return [
+      String(totalStudents),
+      String(totalSamples),
+      String(totalFields),
+      String(qualifiedFields)
+    ];
+  }, [samples, students]);
+
+  const teacherMetricsLabels = ["全班学生", "样本总数", "视野记录", "已合格"];
+
+  return (
+    <>
+      <section className="hero teacher-hero">
+        <div>
+          <p className="eyebrow">教师工作台</p>
+          <h1>欢迎，{currentUser.name}</h1>
+          <p className="subtitle">在这里你可以查看全班学生的观察记录并评阅重点结构</p>
+        </div>
+        <div className="stack-card">
+          <span>当前身份</span>
+          <strong>👨‍🏫 实验课教师</strong>
+        </div>
+      </section>
+
+      <section className="metrics-grid">
+        {teacherMetricsLabels.map((label: string, index: number) => (
+          <MetricCard key={label} label={label} value={classMetrics[index]} index={index} />
+        ))}
+      </section>
+
+      <section className="panel">
+        <div className="section-heading">
+          <div>
+            <p>学生管理</p>
+            <h2>查看学生记录</h2>
+          </div>
+          <div className="teacher-filters">
+            <select
+              value={selectedStudentId}
+              onChange={(e) => setSelectedStudentId(e.target.value)}
+              className="filter-select"
+            >
+              <option value="all">全部学生</option>
+              {students.map(student => (
+                <option key={student.id} value={student.id}>{student.name}</option>
+              ))}
+            </select>
+          </div>
+        </div>
+
+        <div className="student-records-grid">
+          {students.map(student => {
+            if (selectedStudentId !== "all" && selectedStudentId !== student.id) return null;
+            const studentSamples = filteredSamples.filter(s => s.studentId === student.id);
+
+            return (
+              <div key={student.id} className="student-record-panel">
+                <div className="student-record-header">
+                  <div className="student-info">
+                    <span className="student-avatar">👨‍🎓</span>
+                    <div>
+                      <strong>{student.name}</strong>
+                      <p>{studentSamples.length} 个样本</p>
+                    </div>
+                  </div>
+                  <div className="student-stats">
+                    <span className="mini-stat">
+                      <em>{studentSamples.reduce((sum, s) => sum + s.magnifications.length, 0)}</em>
+                      <small>视野记录</small>
+                    </span>
+                    <span className="mini-stat pass">
+                      <em>{studentSamples.reduce((sum, s) => sum + s.magnifications.filter(r => r.isQualified === true).length, 0)}</em>
+                      <small>已合格</small>
+                    </span>
+                    <span className="mini-stat pending">
+                      <em>{studentSamples.reduce((sum, s) => sum + s.magnifications.filter(r => r.isQualified === undefined).length, 0)}</em>
+                      <small>待评阅</small>
+                    </span>
+                  </div>
+                </div>
+
+                <div className="student-samples-list">
+                  {studentSamples.length === 0 ? (
+                    <p className="empty-description">该学生暂无记录</p>
+                  ) : (
+                    studentSamples.map(sample => {
+                      const pendingRecords = sample.magnifications.filter(r => r.isQualified === undefined);
+
+                      return (
+                        <article key={sample.id} className="teacher-sample-card">
+                          <div
+                            className="teacher-sample-info clickable"
+                            onClick={() => onSampleClick(sample)}
+                          >
+                            <h4>{sample.sampleName}</h4>
+                            <p>{sample.sampleType} · {sample.stainingMethod}</p>
+                            <div className="record-mag-chips">
+                              {sample.magnifications.slice(0, 3).map(rec => (
+                                <span
+                                  key={rec.id}
+                                  className={`record-mag-chip ${
+                                    rec.isQualified === true
+                                      ? "pass-chip"
+                                      : rec.isQualified === false
+                                      ? "fail-chip"
+                                      : "pending-chip"
+                                  }`}
+                                >
+                                  {rec.magnification} {rec.observedStructure}
+                                  {rec.isQualified === true ? " ✓" : rec.isQualified === false ? " ✗" : ""}
+                                </span>
+                              ))}
+                            </div>
+                          </div>
+                          <div className="teacher-quick-actions">
+                            {pendingRecords.length > 0 && (
+                              <span className="pending-badge">{pendingRecords.length} 待评阅</span>
+                            )}
+                            <button
+                              type="button"
+                              className="primary-action"
+                              onClick={() => onSampleClick(sample)}
+                            >
+                              查看详情
+                            </button>
+                          </div>
+                        </article>
+                      );
+                    })
+                  )}
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      </section>
+    </>
+  );
+}
+
+function AdminWorkbench({
+  currentUser,
+  sampleCategories,
+  stainingMethods,
+  onAddCategory,
+  onDeleteCategory,
+  onAddStainingMethod,
+  onDeleteStainingMethod
+}: {
+  currentUser: User;
+  sampleCategories: SampleCategory[];
+  stainingMethods: StainingMethod[];
+  onAddCategory: (name: string) => void;
+  onDeleteCategory: (id: string) => void;
+  onAddStainingMethod: (name: string) => void;
+  onDeleteStainingMethod: (id: string) => void;
+}) {
+  const [newCategoryName, setNewCategoryName] = useState("");
+  const [newStainingName, setNewStainingName] = useState("");
+
+  const handleAddCategory = (e: FormEvent) => {
+    e.preventDefault();
+    if (!newCategoryName.trim()) return;
+    onAddCategory(newCategoryName.trim());
+    setNewCategoryName("");
+  };
+
+  const handleAddStaining = (e: FormEvent) => {
+    e.preventDefault();
+    if (!newStainingName.trim()) return;
+    onAddStainingMethod(newStainingName.trim());
+    setNewStainingName("");
+  };
+
+  const adminMetrics = [
+    String(sampleCategories.length),
+    String(stainingMethods.length),
+    String(0),
+    String(0)
+  ];
+  const adminMetricsLabels = ["样本分类", "染色方式", "总记录数", "活跃用户"];
+
+  return (
+    <>
+      <section className="hero admin-hero">
+        <div>
+          <p className="eyebrow">管理员工作台</p>
+          <h1>欢迎，{currentUser.name}</h1>
+          <p className="subtitle">在这里你可以维护样本分类和染色方式选项</p>
+        </div>
+        <div className="stack-card">
+          <span>当前身份</span>
+          <strong>🔧 实验管理员</strong>
+        </div>
+      </section>
+
+      <section className="metrics-grid">
+        {adminMetricsLabels.map((label: string, index: number) => (
+          <MetricCard key={label} label={label} value={adminMetrics[index]} index={index} />
+        ))}
+      </section>
+
+      <section className="workspace">
+        <section className="panel">
+          <div className="section-heading">
+            <div>
+              <p>系统配置</p>
+              <h2>样本分类管理</h2>
+            </div>
+          </div>
+
+          <form onSubmit={handleAddCategory} className="admin-add-form">
+            <input
+              type="text"
+              value={newCategoryName}
+              onChange={(e) => setNewCategoryName(e.target.value)}
+              placeholder="输入新的样本分类名称"
+            />
+            <button type="submit" className="primary-action">+ 添加分类</button>
+          </form>
+
+          <div className="admin-item-list">
+            {sampleCategories.map(cat => (
+              <div key={cat.id} className="admin-item">
+                <span className="admin-item-name">
+                  <span className="item-icon">📁</span>
+                  {cat.name}
+                </span>
+                <button
+                  type="button"
+                  className="danger-action"
+                  onClick={() => {
+                    if (window.confirm(`确认删除分类「${cat.name}」？`)) {
+                      onDeleteCategory(cat.id);
+                    }
+                  }}
+                >
+                  删除
+                </button>
+              </div>
+            ))}
+          </div>
+        </section>
+
+        <section className="panel">
+          <div className="section-heading">
+            <div>
+              <p>系统配置</p>
+              <h2>染色方式管理</h2>
+            </div>
+          </div>
+
+          <form onSubmit={handleAddStaining} className="admin-add-form">
+            <input
+              type="text"
+              value={newStainingName}
+              onChange={(e) => setNewStainingName(e.target.value)}
+              placeholder="输入新的染色方式名称"
+            />
+            <button type="submit" className="primary-action">+ 添加染色方式</button>
+          </form>
+
+          <div className="admin-item-list">
+            {stainingMethods.map(stain => (
+              <div key={stain.id} className="admin-item">
+                <span className="admin-item-name">
+                  <span className="item-icon">🧪</span>
+                  {stain.name}
+                </span>
+                <button
+                  type="button"
+                  className="danger-action"
+                  onClick={() => {
+                    if (window.confirm(`确认删除染色方式「${stain.name}」？`)) {
+                      onDeleteStainingMethod(stain.id);
+                    }
+                  }}
+                >
+                  删除
+                </button>
+              </div>
+            ))}
+          </div>
+        </section>
+      </section>
+    </>
   );
 }
 
@@ -518,6 +1262,12 @@ function App() {
   const [dbStatus, setDbStatus] = useState<"init" | "ready" | "error" | "unsupported">("init");
   const [dbError, setDbError] = useState<string>("");
   const [isLoading, setIsLoading] = useState(true);
+
+  const [currentRole, setCurrentRole] = useState<Role>("student");
+  const [currentUser, setCurrentUser] = useState<User | null>(defaultUsers[0]);
+  const [users] = useState<User[]>(defaultUsers);
+  const [sampleCategories, setSampleCategories] = useState<SampleCategory[]>(defaultSampleCategories);
+  const [stainingMethods, setStainingMethods] = useState<StainingMethod[]>(defaultStainingMethods);
 
   useEffect(() => {
     const initDatabase = async () => {
@@ -628,19 +1378,7 @@ function App() {
     }));
   }, [samples]);
 
-  const handleTemplateSelect = (template: ObservationTemplate) => {
-    setSelectedTemplate(template.id);
-    setFormData(prev => ({
-      ...prev,
-      sampleType: template.sampleType,
-      stainingMethod: template.stainingMethod,
-      magnification: template.magnification,
-      observedStructure: template.observedStructure
-    }));
-    setErrors({});
-  };
-
-  const handleInputChange = (e: ChangeEvent<HTMLInputElement>) => {
+  const handleInputChange = (e: ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
     const { name, value } = e.target;
     setFormData(prev => ({ ...prev, [name]: value }));
     if (errors[name as keyof FormErrors]) {
@@ -672,12 +1410,17 @@ function App() {
     e.preventDefault();
 
     if (!validateForm()) return;
+    if (!currentUser) return;
 
     const now = new Date().toISOString();
+    const studentId = currentUser.id;
+    const studentName = currentUser.name;
+
     const existingSample = samples.find(
       sample =>
         sample.sampleName === formData.sampleName.trim() &&
-        sample.sampleType === formData.sampleType.trim()
+        sample.sampleType === formData.sampleType.trim() &&
+        sample.studentId === studentId
     );
 
     const newMagnification: MagnificationRecord = {
@@ -702,7 +1445,9 @@ function App() {
         sampleType: formData.sampleType.trim(),
         stainingMethod: formData.stainingMethod.trim(),
         createdAt: now,
-        magnifications: [newMagnification]
+        magnifications: [newMagnification],
+        studentId,
+        studentName
       };
       newSamples = [newSample, ...samples];
     }
@@ -783,136 +1528,136 @@ function App() {
     persistSamples(newSamples);
   };
 
+  const handleToggleQualified = (sampleId: string, magId: string, qualified: boolean) => {
+    if (!currentUser) return;
+    const newSamples = samples.map(sample =>
+      sample.id === sampleId
+        ? {
+            ...sample,
+            magnifications: sample.magnifications.map(record =>
+              record.id === magId
+                ? {
+                    ...record,
+                    isQualified: qualified,
+                    qualifiedAt: new Date().toISOString(),
+                    reviewedBy: currentUser.name
+                  }
+                : record
+            )
+          }
+        : sample
+    );
+    setSamples(newSamples);
+    persistSamples(newSamples);
+  };
+
+  const handleAddCategory = (name: string) => {
+    const newCategory: SampleCategory = {
+      id: `cat-${Date.now()}`,
+      name
+    };
+    setSampleCategories(prev => [...prev, newCategory]);
+  };
+
+  const handleDeleteCategory = (id: string) => {
+    setSampleCategories(prev => prev.filter(c => c.id !== id));
+  };
+
+  const handleAddStainingMethod = (name: string) => {
+    const newMethod: StainingMethod = {
+      id: `stain-${Date.now()}`,
+      name
+    };
+    setStainingMethods(prev => [...prev, newMethod]);
+  };
+
+  const handleDeleteStainingMethod = (id: string) => {
+    setStainingMethods(prev => prev.filter(s => s.id !== id));
+  };
+
+  const handleTemplateSelect = (template: ObservationTemplate) => {
+    setSelectedTemplate(template.id);
+    const studentId = currentUser?.id || "";
+    const studentName = currentUser?.name || "";
+    setFormData(prev => ({
+      ...prev,
+      sampleType: template.sampleType,
+      stainingMethod: template.stainingMethod,
+      magnification: template.magnification,
+      observedStructure: template.observedStructure,
+      studentId,
+      studentName
+    }));
+    setErrors({});
+  };
+
+  if (isLoading) {
+    return (
+      <main className="app-shell">
+        <section className="panel">
+          <p>加载中...</p>
+        </section>
+      </main>
+    );
+  }
+
   return (
     <main className="app-shell">
       {currentView === "list" ? (
         <>
-          <section className="hero">
-            <div>
-              <p className="eyebrow">{project.id} · port {project.port}</p>
-              <h1>{project.title}</h1>
-              <p className="subtitle">{project.subtitle}</p>
-            </div>
-            <div className="stack-card">
-              <span>技术栈</span>
-              <strong>{project.stack}</strong>
-            </div>
-          </section>
+          <RoleSelector
+            currentRole={currentRole}
+            currentUser={currentUser}
+            users={users}
+            onRoleChange={setCurrentRole}
+            onUserChange={(user) => {
+              setCurrentUser(user);
+              setCurrentRole(user.role);
+              setFormData(prev => ({
+                ...prev,
+                studentId: user.id,
+                studentName: user.name
+              }));
+            }}
+          />
 
-          <section className="metrics-grid">
-            {project.metrics.map((metric: string, index: number) => (
-              <MetricCard key={metric} label={metric} value={metrics[index]} index={index} />
-            ))}
-          </section>
+          {currentUser && currentRole === "student" && (
+            <StudentWorkbench
+              currentUser={currentUser}
+              samples={samples}
+              sampleCategories={sampleCategories}
+              stainingMethods={stainingMethods}
+              formData={formData}
+              errors={errors}
+              selectedTemplate={selectedTemplate}
+              onTemplateSelect={handleTemplateSelect}
+              onInputChange={handleInputChange}
+              onSubmit={handleSubmit}
+              onSampleClick={handleSampleClick}
+            />
+          )}
 
-          <section className="panel magnification-stats-panel">
-            <div className="section-heading">
-              <div>
-                <p>按倍率统计</p>
-                <h2>多倍率视野记录分布</h2>
-              </div>
-            </div>
-            <div className="magnification-stats">
-              {magnificationStats.map((stat, index) => (
-                <div key={stat.magnification} className="magnification-stat-card">
-                  <div className="magnification-stat-header">
-                    <span className="magnification-label">{stat.magnification}</span>
-                    <strong className="magnification-count">{stat.count}</strong>
-                  </div>
-                  <div className="magnification-bar-wrapper">
-                    <div
-                      className={`magnification-bar magnification-bar-${index}`}
-                      style={{
-                        width: `${
-                          magnificationStats.some(s => s.count > 0)
-                            ? (stat.count / Math.max(...magnificationStats.map(s => s.count))) * 100
-                            : 0
-                        }%`
-                      }}
-                    />
-                  </div>
-                  <span className="magnification-stat-hint">条视野记录</span>
-                </div>
-              ))}
-            </div>
-          </section>
+          {currentUser && currentRole === "teacher" && (
+            <TeacherWorkbench
+              currentUser={currentUser}
+              samples={samples}
+              users={users}
+              onSampleClick={handleSampleClick}
+              onToggleQualified={handleToggleQualified}
+            />
+          )}
 
-          <section className="workspace">
-            <aside className="panel narrow">
-              <h2>角色</h2>
-              <div className="chips">
-                {project.users.map((user: string) => (
-                  <span key={user}>{user}</span>
-                ))}
-              </div>
-              <h2>筛选</h2>
-              <div className="chips muted">
-                {project.filters.map((filter: string) => (
-                  <button key={filter}>{filter}</button>
-                ))}
-              </div>
-            </aside>
-
-            <section className="panel">
-              <div className="section-heading">
-                <div>
-                  <p>{project.domain}</p>
-                  <h2>观察记录创建</h2>
-                </div>
-              </div>
-
-              <div className="template-library">
-                <div className="template-library-header">
-                  <h3>📚 课堂观察模板库</h3>
-                  <p className="template-hint">选择模板快速填充观察字段，之后可手动修改</p>
-                </div>
-                <div className="template-grid">
-                  {observationTemplates.map(template => (
-                    <article
-                      key={template.id}
-                      className={`template-card ${selectedTemplate === template.id ? "template-selected" : ""}`}
-                      onClick={() => handleTemplateSelect(template)}
-                    >
-                      <div className="template-icon">{template.icon}</div>
-                      <h4>{template.name}</h4>
-                      <p className="template-desc">{template.description}</p>
-                      <div className="template-info">
-                        <span>染色：{template.stainingMethod}</span>
-                        <span>倍数：{template.magnification}</span>
-                      </div>
-                    </article>
-                  ))}
-                </div>
-              </div>
-
-              <p className="form-hint">
-                提交后将创建样本并录入第一条倍率视野记录，可在样本详情中继续补充 100x、200x、400x、1000x 等其他倍率观察结果。
-              </p>
-
-              <form onSubmit={handleSubmit} className="field-grid">
-                {project.fields.map(field => (
-                  <label key={field.key} className={errors[field.key as keyof FormErrors] ? "field-error" : ""}>
-                    <span>
-                      {field.label}
-                      {field.required && <em className="required-mark">*</em>}
-                    </span>
-                    <input
-                      name={field.key}
-                      value={formData[field.key as keyof SampleFormData]}
-                      onChange={handleInputChange}
-                      placeholder={"填写" + field.label + (field.key === "magnification" ? "（如 400x）" : "")}
-                    />
-                    {errors[field.key as keyof FormErrors] && (
-                      <small className="error-text">{errors[field.key as keyof FormErrors]}</small>
-                    )}
-                  </label>
-                ))}
-                <div className="form-actions">
-                  <button type="submit" className="primary-action">提交记录</button>
-                </div>
-              </form>
-            </section>
-          </section>
+          {currentUser && currentRole === "admin" && (
+            <AdminWorkbench
+              currentUser={currentUser}
+              sampleCategories={sampleCategories}
+              stainingMethods={stainingMethods}
+              onAddCategory={handleAddCategory}
+              onDeleteCategory={handleDeleteCategory}
+              onAddStainingMethod={handleAddStainingMethod}
+              onDeleteStainingMethod={handleDeleteStainingMethod}
+            />
+          )}
 
           {dbStatus !== "ready" && (
             <section className={`storage-alert ${dbStatus}`}>
@@ -927,68 +1672,18 @@ function App() {
               </div>
             </section>
           )}
-
-          <section className="records panel">
-            <div className="section-heading">
-              <div>
-                <p>数据</p>
-                <h2>近期记录</h2>
-              </div>
-              <div className="record-actions">
-                <button type="button" onClick={handleClearAllRecords} className="danger-action">
-                  清空本地记录
-                </button>
-                <button type="button">导出摘要</button>
-              </div>
-            </div>
-            <div className="record-list">
-              {samples.length === 0 ? (
-                <p className="empty-description">暂无样本记录，请通过上方表单创建。</p>
-              ) : (
-                samples.map((sample, index) => {
-                  const sampleMagStats = MAGNIFICATION_GROUPS.map(mag => ({
-                    mag,
-                    count: sample.magnifications.filter(r => r.magnification.toLowerCase() === mag).length
-                  })).filter(s => s.count > 0);
-
-                  return (
-                    <article
-                      key={sample.id}
-                      className="record-card clickable"
-                      onClick={() => handleSampleClick(sample)}
-                    >
-                      <div className="record-index">{String(index + 1).padStart(2, "0")}</div>
-                      <div className="record-summary">
-                        <h3>{sample.sampleName}</h3>
-                        <p>
-                          {sample.sampleType} · {sample.stainingMethod} · 视野记录 {sample.magnifications.length} 条
-                        </p>
-                        {sampleMagStats.length > 0 && (
-                          <div className="record-mag-chips">
-                            {sampleMagStats.map(stat => (
-                              <span key={stat.mag} className="record-mag-chip">
-                                {stat.mag} × {stat.count}
-                              </span>
-                            ))}
-                          </div>
-                        )}
-                      </div>
-                      <span className="record-badge">{sample.magnifications.length}</span>
-                    </article>
-                  );
-                })
-              )}
-            </div>
-          </section>
         </>
       ) : (
-        selectedSample && (
+        selectedSample && currentUser && (
           <SampleDetail
             sample={selectedSample}
             onBack={handleBackToList}
             onAddMagnification={handleAddMagnification}
             onUpdateMagnification={handleUpdateMagnification}
             onDeleteMagnification={handleDeleteMagnification}
+            onToggleQualified={handleToggleQualified}
+            currentRole={currentRole}
+            currentUserName={currentUser.name}
           />
         )
       )}

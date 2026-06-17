@@ -1,9 +1,20 @@
+export type Role = "student" | "teacher" | "admin";
+
+export interface User {
+  id: string;
+  name: string;
+  role: Role;
+}
+
 export interface MagnificationRecord {
   id: string;
   magnification: string;
   observedStructure: string;
   fieldDescription: string;
   createdAt: string;
+  isQualified?: boolean;
+  qualifiedAt?: string;
+  reviewedBy?: string;
 }
 
 export interface Sample {
@@ -13,6 +24,18 @@ export interface Sample {
   stainingMethod: string;
   createdAt: string;
   magnifications: MagnificationRecord[];
+  studentId: string;
+  studentName: string;
+}
+
+export interface SampleCategory {
+  id: string;
+  name: string;
+}
+
+export interface StainingMethod {
+  id: string;
+  name: string;
 }
 
 interface LegacyRecord {
@@ -29,7 +52,30 @@ const DB_NAME = "microscope-observation-db";
 const DB_VERSION = 1;
 const STORE_NAME = "samples";
 
-const initialLegacyRecords: LegacyRecord[] = [
+export const defaultUsers: User[] = [
+  { id: "student-1", name: "张三", role: "student" },
+  { id: "student-2", name: "李四", role: "student" },
+  { id: "student-3", name: "王五", role: "student" },
+  { id: "teacher-1", name: "李老师", role: "teacher" },
+  { id: "admin-1", name: "赵管理员", role: "admin" }
+];
+
+export const defaultSampleCategories: SampleCategory[] = [
+  { id: "cat-1", name: "植物组织" },
+  { id: "cat-2", name: "动物组织" },
+  { id: "cat-3", name: "微生物" },
+  { id: "cat-4", name: "血液涂片" }
+];
+
+export const defaultStainingMethods: StainingMethod[] = [
+  { id: "stain-1", name: "碘液" },
+  { id: "stain-2", name: "HE染色" },
+  { id: "stain-3", name: "革兰氏染色" },
+  { id: "stain-4", name: "瑞氏染色" },
+  { id: "stain-5", name: "活体观察" }
+];
+
+const initialLegacyRecords: (LegacyRecord & { studentId: string; studentName: string })[] = [
   {
     sampleName: "洋葱表皮",
     sampleType: "植物组织",
@@ -37,7 +83,9 @@ const initialLegacyRecords: LegacyRecord[] = [
     magnification: "100x",
     observedStructure: "细胞排列",
     fieldDescription: "低倍镜下细胞紧密排列，轮廓可辨",
-    createdAt: new Date(Date.now() - 2 * 86400000).toISOString()
+    createdAt: new Date(Date.now() - 2 * 86400000).toISOString(),
+    studentId: "student-1",
+    studentName: "张三"
   },
   {
     sampleName: "洋葱表皮",
@@ -46,7 +94,9 @@ const initialLegacyRecords: LegacyRecord[] = [
     magnification: "200x",
     observedStructure: "细胞壁",
     fieldDescription: "中倍镜下细胞壁清晰，细胞核隐约可见",
-    createdAt: new Date(Date.now() - 2 * 86400000 + 3600000).toISOString()
+    createdAt: new Date(Date.now() - 2 * 86400000 + 3600000).toISOString(),
+    studentId: "student-1",
+    studentName: "张三"
   },
   {
     sampleName: "人血涂片",
@@ -55,11 +105,24 @@ const initialLegacyRecords: LegacyRecord[] = [
     magnification: "1000x",
     observedStructure: "红细胞",
     fieldDescription: "红细胞分布均匀，形态典型",
-    createdAt: new Date(Date.now() - 86400000).toISOString()
+    createdAt: new Date(Date.now() - 86400000).toISOString(),
+    studentId: "student-2",
+    studentName: "李四"
+  },
+  {
+    sampleName: "草履虫",
+    sampleType: "微生物",
+    stainingMethod: "活体观察",
+    magnification: "200x",
+    observedStructure: "纤毛",
+    fieldDescription: "纤毛运动明显，细胞结构清晰",
+    createdAt: new Date(Date.now() - 86400000 / 2).toISOString(),
+    studentId: "student-3",
+    studentName: "王五"
   }
 ];
 
-const migrateToSamples = (records: LegacyRecord[]): Sample[] => {
+const migrateToSamples = (records: (LegacyRecord & { studentId: string; studentName: string })[]): Sample[] => {
   const sampleMap = new Map<string, Sample>();
   records.forEach((record, index) => {
     const magnificationRecord: MagnificationRecord = {
@@ -69,17 +132,20 @@ const migrateToSamples = (records: LegacyRecord[]): Sample[] => {
       fieldDescription: record.fieldDescription,
       createdAt: record.createdAt
     };
-    const existing = sampleMap.get(record.sampleName);
+    const key = `${record.sampleName}-${record.studentId}`;
+    const existing = sampleMap.get(key);
     if (existing) {
       existing.magnifications.push(magnificationRecord);
     } else {
-      sampleMap.set(record.sampleName, {
+      sampleMap.set(key, {
         id: `sample-init-${index}`,
         sampleName: record.sampleName,
         sampleType: record.sampleType,
         stainingMethod: record.stainingMethod,
         createdAt: record.createdAt,
-        magnifications: [magnificationRecord]
+        magnifications: [magnificationRecord],
+        studentId: record.studentId,
+        studentName: record.studentName
       });
     }
   });

@@ -816,3 +816,436 @@ input {
     flex-wrap: wrap;
   }
 }
+
+select {
+  width: 100%;
+  min-height: 42px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 0 12px;
+  color: #172033;
+  background: #ffffff;
+  font: inherit;
+  cursor: pointer;
+}
+
+.role-selector {
+  margin-bottom: 20px;
+}
+
+.role-cards {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 14px;
+  margin-bottom: 20px;
+}
+
+.role-card {
+  display: grid;
+  gap: 10px;
+  padding: 20px;
+  border: 2px solid var(--border);
+  border-radius: 10px;
+  background: #fbfdff;
+  cursor: pointer;
+  transition: all 0.25s ease;
+  text-align: center;
+}
+
+.role-card:hover {
+  transform: translateY(-3px);
+  box-shadow: 0 8px 20px rgba(31, 41, 55, 0.1);
+  border-color: color-mix(in srgb, var(--primary) 50%, var(--border));
+}
+
+.role-active {
+  border-color: var(--primary);
+  background: color-mix(in srgb, var(--primary) 8%, #ffffff);
+  box-shadow: 0 4px 16px rgba(67, 56, 202, 0.15);
+}
+
+.role-icon {
+  font-size: 36px;
+  margin-bottom: 4px;
+}
+
+.role-card h3 {
+  margin: 0;
+  font-size: 17px;
+  color: #172033;
+}
+
+.role-card p {
+  margin: 0;
+  font-size: 13px;
+  color: #64748b;
+  line-height: 1.5;
+}
+
+.user-select-wrap {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 20px;
+  align-items: center;
+  padding-top: 18px;
+  border-top: 1px solid var(--border);
+}
+
+.user-select-wrap > label {
+  max-width: 320px;
+}
+
+.current-user-info {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 16px;
+  background: color-mix(in srgb, var(--primary) 8%, #ffffff);
+  border: 1px solid color-mix(in srgb, var(--primary) 28%, var(--border));
+  border-radius: 8px;
+}
+
+.user-avatar {
+  font-size: 28px;
+}
+
+.current-user-info strong {
+  font-size: 15px;
+  color: #172033;
+}
+
+.current-user-info p {
+  margin: 2px 0 0;
+  font-size: 12px;
+  color: #64748b;
+}
+
+.student-hero > div:first-child {
+  border-left-color: var(--primary);
+}
+
+.teacher-hero > div:first-child {
+  border-left-color: var(--accent);
+}
+
+.admin-hero > div:first-child {
+  border-left-color: var(--warn);
+}
+
+.primary-action-chip {
+  background: var(--primary) !important;
+  color: #ffffff !important;
+  border-color: var(--primary) !important;
+  font-weight: 600;
+}
+
+.pass-chip {
+  background: color-mix(in srgb, var(--accent) 12%, #ffffff) !important;
+  color: var(--accent) !important;
+  border-color: color-mix(in srgb, var(--accent) 35%, var(--border)) !important;
+}
+
+.fail-chip {
+  background: color-mix(in srgb, #e11d48 10%, #ffffff) !important;
+  color: #e11d48 !important;
+  border-color: color-mix(in srgb, #e11d48 35%, var(--border)) !important;
+}
+
+.pending-chip {
+  background: color-mix(in srgb, #f59e0b 10%, #ffffff) !important;
+  color: #b45309 !important;
+  border-color: color-mix(in srgb, #f59e0b 35%, var(--border)) !important;
+}
+
+.record-status-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 6px;
+}
+
+.card-title-wrap {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.qualification-badge {
+  font-size: 12px;
+  font-weight: 600;
+  padding: 3px 10px;
+  border-radius: 999px;
+}
+
+.badge-pass {
+  background: color-mix(in srgb, var(--accent) 12%, #ffffff);
+  color: var(--accent);
+  border: 1px solid color-mix(in srgb, var(--accent) 35%, var(--border));
+}
+
+.badge-fail {
+  background: color-mix(in srgb, #e11d48 10%, #ffffff);
+  color: #e11d48;
+  border: 1px solid color-mix(in srgb, #e11d48 35%, var(--border));
+}
+
+.magnification-card.qualified {
+  border-color: color-mix(in srgb, var(--accent) 40%, var(--border));
+  background: color-mix(in srgb, var(--accent) 4%, #ffffff);
+}
+
+.magnification-card.unqualified {
+  border-color: color-mix(in srgb, #e11d48 40%, var(--border));
+  background: color-mix(in srgb, #e11d48 4%, #ffffff);
+}
+
+.qualified-action {
+  color: var(--accent);
+  border-color: color-mix(in srgb, var(--accent) 40%, var(--border));
+  background: color-mix(in srgb, var(--accent) 6%, #ffffff);
+}
+
+.qualified-action:hover,
+.qualified-action.active-pass {
+  background: color-mix(in srgb, var(--accent) 14%, #ffffff);
+}
+
+.unqualified-action {
+  color: #e11d48;
+  border-color: color-mix(in srgb, #e11d48 40%, var(--border));
+  background: color-mix(in srgb, #e11d48 6%, #ffffff);
+}
+
+.unqualified-action:hover,
+.unqualified-action.active-fail {
+  background: color-mix(in srgb, #e11d48 14%, #ffffff);
+}
+
+.magnification-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  align-items: center;
+  margin-top: 8px;
+}
+
+.review-info {
+  font-size: 12px;
+  color: var(--primary);
+  background: color-mix(in srgb, var(--primary) 8%, #ffffff);
+  padding: 3px 10px;
+  border-radius: 999px;
+}
+
+.teacher-filters {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+}
+
+.filter-select {
+  min-width: 180px;
+}
+
+.student-records-grid {
+  display: grid;
+  gap: 18px;
+}
+
+.student-record-panel {
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  overflow: hidden;
+  background: #fbfdff;
+}
+
+.student-record-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 16px;
+  padding: 14px 18px;
+  background: color-mix(in srgb, var(--accent) 8%, #ffffff);
+  border-bottom: 1px solid var(--border);
+  flex-wrap: wrap;
+}
+
+.student-info {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.student-avatar {
+  font-size: 32px;
+}
+
+.student-info strong {
+  font-size: 16px;
+  color: #172033;
+}
+
+.student-info p {
+  margin: 2px 0 0;
+  font-size: 13px;
+  color: #64748b;
+}
+
+.student-stats {
+  display: flex;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.mini-stat {
+  display: grid;
+  gap: 2px;
+  text-align: center;
+  padding: 6px 14px;
+  background: #ffffff;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  min-width: 70px;
+}
+
+.mini-stat em {
+  font-style: normal;
+  font-size: 20px;
+  font-weight: 800;
+  color: #172033;
+}
+
+.mini-stat small {
+  font-size: 11px;
+  color: #64748b;
+}
+
+.mini-stat.pass em {
+  color: var(--accent);
+}
+
+.mini-stat.pending em {
+  color: #b45309;
+}
+
+.student-samples-list {
+  display: grid;
+  gap: 12px;
+  padding: 16px 18px;
+}
+
+.teacher-sample-card {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 14px;
+  align-items: center;
+  padding: 14px 16px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: #ffffff;
+}
+
+.teacher-sample-info h4 {
+  margin: 0 0 4px;
+  font-size: 15px;
+  color: #172033;
+}
+
+.teacher-sample-info p {
+  margin: 0 0 8px;
+  font-size: 13px;
+  color: #64748b;
+}
+
+.teacher-quick-actions {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 8px;
+}
+
+.pending-badge {
+  font-size: 12px;
+  font-weight: 600;
+  padding: 3px 10px;
+  border-radius: 999px;
+  background: color-mix(in srgb, #f59e0b 10%, #ffffff);
+  color: #b45309;
+  border: 1px solid color-mix(in srgb, #f59e0b 35%, var(--border));
+}
+
+.admin-add-form {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 10px;
+  margin-bottom: 18px;
+}
+
+.admin-item-list {
+  display: grid;
+  gap: 10px;
+}
+
+.admin-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 12px 16px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: #f8fafc;
+}
+
+.admin-item-name {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-weight: 500;
+  color: #172033;
+}
+
+.item-icon {
+  font-size: 18px;
+}
+
+@media (max-width: 860px) {
+  .role-cards {
+    grid-template-columns: 1fr;
+  }
+
+  .user-select-wrap {
+    grid-template-columns: 1fr;
+  }
+
+  .student-record-header {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .teacher-sample-card {
+    grid-template-columns: 1fr;
+  }
+
+  .teacher-quick-actions {
+    flex-direction: row;
+    align-items: center;
+    justify-content: flex-start;
+    flex-wrap: wrap;
+  }
+
+  .admin-add-form {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 640px) {
+  .student-stats {
+    width: 100%;
+  }
+
+  .mini-stat {
+    flex: 1;
+  }
+}
