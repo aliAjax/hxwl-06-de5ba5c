@@ -1210,6 +1210,169 @@ select {
   font-size: 18px;
 }
 
+.admin-item-badge {
+  font-size: 11px;
+  font-weight: 500;
+  padding: 2px 8px;
+  border-radius: 999px;
+  background: color-mix(in srgb, #3b82f6 10%, #ffffff);
+  color: #2563eb;
+  border: 1px solid color-mix(in srgb, #3b82f6 25%, var(--border));
+  white-space: nowrap;
+}
+
+.admin-item-actions {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  flex-shrink: 0;
+}
+
+.admin-item-edit {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  width: 100%;
+  flex-wrap: wrap;
+}
+
+.admin-edit-input-wrap {
+  flex: 1;
+  min-width: 0;
+  display: grid;
+  gap: 4px;
+}
+
+.admin-edit-input-wrap input {
+  min-height: 36px;
+  font-size: 14px;
+}
+
+.admin-edit-actions {
+  display: flex;
+  gap: 6px;
+  flex-shrink: 0;
+  align-items: center;
+  padding-top: 2px;
+}
+
+.admin-edit-save {
+  min-height: 36px;
+  padding: 0 14px;
+  font-size: 13px;
+  white-space: nowrap;
+}
+
+.admin-edit-cancel {
+  min-height: 36px;
+  padding: 0 14px;
+  font-size: 13px;
+  white-space: nowrap;
+  background: #f1f5f9;
+  color: #475569;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  cursor: pointer;
+}
+
+.admin-edit-cancel:hover {
+  background: #e2e8f0;
+}
+
+.admin-edit-btn {
+  min-height: 32px;
+  padding: 0 12px;
+  font-size: 13px;
+}
+
+.admin-add-input-wrap {
+  display: grid;
+  gap: 4px;
+}
+
+.admin-field-error {
+  margin: 0;
+  font-size: 12px;
+  color: #e11d48;
+  line-height: 1.4;
+}
+
+.admin-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.4);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+  padding: 20px;
+}
+
+.admin-dialog {
+  background: #ffffff;
+  border-radius: 16px;
+  padding: 32px;
+  max-width: 440px;
+  width: 100%;
+  box-shadow: 0 25px 60px rgba(0, 0, 0, 0.2);
+  display: grid;
+  gap: 16px;
+}
+
+.admin-dialog-icon {
+  font-size: 36px;
+  text-align: center;
+}
+
+.admin-dialog-title {
+  margin: 0;
+  font-size: 20px;
+  font-weight: 700;
+  color: #172033;
+  text-align: center;
+}
+
+.admin-dialog-message {
+  margin: 0;
+  font-size: 15px;
+  color: #475569;
+  line-height: 1.6;
+  text-align: center;
+}
+
+.admin-dialog-detail {
+  background: #fffbeb;
+  border: 1px solid #fbbf24;
+  border-radius: 10px;
+  padding: 14px 16px;
+}
+
+.admin-dialog-detail p {
+  margin: 0 0 8px;
+  font-size: 13px;
+  font-weight: 600;
+  color: #92400e;
+}
+
+.admin-dialog-detail ul {
+  margin: 0;
+  padding-left: 20px;
+  font-size: 13px;
+  color: #92400e;
+  line-height: 1.6;
+}
+
+.admin-dialog-actions {
+  display: flex;
+  justify-content: center;
+  padding-top: 4px;
+}
+
+.admin-dialog-actions .primary-action {
+  min-width: 120px;
+  justify-content: center;
+}
+
 @media (max-width: 860px) {
   .role-cards {
     grid-template-columns: 1fr;

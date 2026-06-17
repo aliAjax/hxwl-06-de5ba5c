@@ -58,8 +58,10 @@ function App() {
     sampleCategories,
     stainingMethods,
     addCategory,
+    updateCategory,
     deleteCategory,
     addStainingMethod,
+    updateStainingMethod,
     deleteStainingMethod
   } = useAdminConfig();
 
@@ -73,7 +75,11 @@ function App() {
     updateMagnification,
     deleteMagnification,
     toggleQualified,
-    clearAllRecords
+    clearAllRecords,
+    bulkUpdateSampleType,
+    bulkUpdateStainingMethod,
+    countSamplesByType,
+    countSamplesByStaining
   } = useSamples();
 
   const {
@@ -391,10 +397,16 @@ function App() {
               currentUser={currentUser}
               sampleCategories={sampleCategories}
               stainingMethods={stainingMethods}
-              onAddCategory={addCategory}
+              onAddCategory={(name: string) => addCategory(name) !== null}
+              onUpdateCategory={updateCategory}
               onDeleteCategory={deleteCategory}
-              onAddStainingMethod={addStainingMethod}
+              onAddStainingMethod={(name: string) => addStainingMethod(name) !== null}
+              onUpdateStainingMethod={updateStainingMethod}
               onDeleteStainingMethod={deleteStainingMethod}
+              countSamplesByType={countSamplesByType}
+              countSamplesByStaining={countSamplesByStaining}
+              bulkUpdateSampleType={bulkUpdateSampleType}
+              bulkUpdateStainingMethod={bulkUpdateStainingMethod}
             />
           )}
 

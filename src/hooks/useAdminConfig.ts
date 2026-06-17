@@ -21,13 +21,15 @@ interface UseAdminConfigReturn {
   sampleCategories: SampleCategory[];
   stainingMethods: StainingMethod[];
   isConfigLoaded: boolean;
-  addCategory: (name: string) => SampleCategory;
-  updateCategory: (id: string, name: string) => void;
+  addCategory: (name: string) => SampleCategory | null;
+  updateCategory: (id: string, name: string) => boolean;
   deleteCategory: (id: string) => void;
-  addStainingMethod: (name: string) => StainingMethod;
-  updateStainingMethod: (id: string, name: string) => void;
+  addStainingMethod: (name: string) => StainingMethod | null;
+  updateStainingMethod: (id: string, name: string) => boolean;
   deleteStainingMethod: (id: string) => void;
   resetToDefaults: () => void;
+  isCategoryNameDuplicate: (name: string, excludeId?: string) => boolean;
+  isStainingNameDuplicate: (name: string, excludeId?: string) => boolean;
 }
 
 export function useAdminConfig(): UseAdminConfigReturn {
@@ -80,7 +82,16 @@ export function useAdminConfig(): UseAdminConfigReturn {
     }
   }, []);
 
-  const addCategory = useCallback((name: string): SampleCategory => {
+  const isCategoryNameDuplicate = useCallback((name: string, excludeId?: string): boolean => {
+    return sampleCategories.some(c => c.name === name && c.id !== excludeId);
+  }, [sampleCategories]);
+
+  const isStainingNameDuplicate = useCallback((name: string, excludeId?: string): boolean => {
+    return stainingMethods.some(s => s.name === name && s.id !== excludeId);
+  }, [stainingMethods]);
+
+  const addCategory = useCallback((name: string): SampleCategory | null => {
+    if (sampleCategories.some(c => c.name === name)) return null;
     const newCategory: SampleCategory = {
       id: `cat-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
       name
@@ -91,15 +102,17 @@ export function useAdminConfig(): UseAdminConfigReturn {
       return next;
     });
     return newCategory;
-  }, [persistCategories]);
+  }, [persistCategories, sampleCategories]);
 
-  const updateCategory = useCallback((id: string, name: string): void => {
+  const updateCategory = useCallback((id: string, name: string): boolean => {
+    if (sampleCategories.some(c => c.name === name && c.id !== id)) return false;
     setSampleCategories(prev => {
       const next = prev.map(c => (c.id === id ? { ...c, name } : c));
       persistCategories(next);
       return next;
     });
-  }, [persistCategories]);
+    return true;
+  }, [persistCategories, sampleCategories]);
 
   const deleteCategory = useCallback((id: string): void => {
     setSampleCategories(prev => {
@@ -109,7 +122,8 @@ export function useAdminConfig(): UseAdminConfigReturn {
     });
   }, [persistCategories]);
 
-  const addStainingMethod = useCallback((name: string): StainingMethod => {
+  const addStainingMethod = useCallback((name: string): StainingMethod | null => {
+    if (stainingMethods.some(s => s.name === name)) return null;
     const newMethod: StainingMethod = {
       id: `stain-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
       name
@@ -120,15 +134,17 @@ export function useAdminConfig(): UseAdminConfigReturn {
       return next;
     });
     return newMethod;
-  }, [persistStaining]);
+  }, [persistStaining, stainingMethods]);
 
-  const updateStainingMethod = useCallback((id: string, name: string): void => {
+  const updateStainingMethod = useCallback((id: string, name: string): boolean => {
+    if (stainingMethods.some(s => s.name === name && s.id !== id)) return false;
     setStainingMethods(prev => {
       const next = prev.map(s => (s.id === id ? { ...s, name } : s));
       persistStaining(next);
       return next;
     });
-  }, [persistStaining]);
+    return true;
+  }, [persistStaining, stainingMethods]);
 
   const deleteStainingMethod = useCallback((id: string): void => {
     setStainingMethods(prev => {
@@ -159,6 +175,8 @@ export function useAdminConfig(): UseAdminConfigReturn {
     addStainingMethod,
     updateStainingMethod,
     deleteStainingMethod,
-    resetToDefaults
+    resetToDefaults,
+    isCategoryNameDuplicate,
+    isStainingNameDuplicate
   };
 }

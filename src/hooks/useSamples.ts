@@ -23,6 +23,10 @@ interface UseSamplesReturn {
   deleteMagnification: (sampleId: string, magId: string) => void;
   toggleQualified: (sampleId: string, magId: string, qualified: boolean, reviewerName: string) => void;
   clearAllRecords: () => Promise<boolean>;
+  bulkUpdateSampleType: (oldName: string, newName: string) => number;
+  bulkUpdateStainingMethod: (oldName: string, newName: string) => number;
+  countSamplesByType: (typeName: string) => number;
+  countSamplesByStaining: (stainingName: string) => number;
 }
 
 export const useSamples = (): UseSamplesReturn => {
@@ -239,6 +243,46 @@ export const useSamples = (): UseSamplesReturn => {
     }
   }, [dbStatus]);
 
+  const countSamplesByType = useCallback((typeName: string): number => {
+    return samples.filter(s => s.sampleType === typeName).length;
+  }, [samples]);
+
+  const countSamplesByStaining = useCallback((stainingName: string): number => {
+    return samples.filter(s => s.stainingMethod === stainingName).length;
+  }, [samples]);
+
+  const bulkUpdateSampleType = useCallback((oldName: string, newName: string): number => {
+    let count = 0;
+    const newSamples = samples.map(sample => {
+      if (sample.sampleType === oldName) {
+        count++;
+        return { ...sample, sampleType: newName };
+      }
+      return sample;
+    });
+    if (count > 0) {
+      setSamples(newSamples);
+      persistSamples(newSamples);
+    }
+    return count;
+  }, [samples, persistSamples]);
+
+  const bulkUpdateStainingMethod = useCallback((oldName: string, newName: string): number => {
+    let count = 0;
+    const newSamples = samples.map(sample => {
+      if (sample.stainingMethod === oldName) {
+        count++;
+        return { ...sample, stainingMethod: newName };
+      }
+      return sample;
+    });
+    if (count > 0) {
+      setSamples(newSamples);
+      persistSamples(newSamples);
+    }
+    return count;
+  }, [samples, persistSamples]);
+
   return useMemo(
     () => ({
       samples,
@@ -250,7 +294,11 @@ export const useSamples = (): UseSamplesReturn => {
       updateMagnification,
       deleteMagnification,
       toggleQualified,
-      clearAllRecords
+      clearAllRecords,
+      bulkUpdateSampleType,
+      bulkUpdateStainingMethod,
+      countSamplesByType,
+      countSamplesByStaining
     }),
     [
       samples,
@@ -262,7 +310,11 @@ export const useSamples = (): UseSamplesReturn => {
       updateMagnification,
       deleteMagnification,
       toggleQualified,
-      clearAllRecords
+      clearAllRecords,
+      bulkUpdateSampleType,
+      bulkUpdateStainingMethod,
+      countSamplesByType,
+      countSamplesByStaining
     ]
   );
 };
