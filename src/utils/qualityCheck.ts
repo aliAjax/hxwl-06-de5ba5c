@@ -3,7 +3,8 @@ import type {
   QualityCheckResult,
   Sample,
   SampleTypeMagnificationRule,
-  MagnificationRecord
+  MagnificationRecord,
+  MagnificationCoverage
 } from "../types";
 import {
   SAMPLE_TYPE_MAGNIFICATION_RULES,
@@ -193,4 +194,39 @@ export const getSampleQualityStatus = (sample: Sample): QualityCheckResult => {
   const overallStatus = hasErrors ? "error" : hasWarnings ? "warning" : "pass";
 
   return { issues: allIssues, hasErrors, hasWarnings, overallStatus };
+};
+
+export const getMagnificationCoverage = (
+  sample: Sample
+): MagnificationCoverage => {
+  const rule = getMagnificationRule(sample.sampleType);
+  const recommended = rule ? [...rule.recommended] : [];
+
+  const recordedSet = new Set<string>();
+  sample.magnifications.forEach(rec => {
+    recordedSet.add(rec.magnification.toLowerCase());
+  });
+
+  const recorded = Array.from(recordedSet);
+  const missing = recommended.filter(mag => !recordedSet.has(mag.toLowerCase()));
+  const nonRecommended = recorded.filter(
+    mag => !recommended.includes(mag.toLowerCase())
+  );
+
+  const coverageRate =
+    recommended.length > 0
+      ? (recommended.length - missing.length) / recommended.length
+      : 1;
+
+  const isComplete = recommended.length > 0 && missing.length === 0;
+
+  return {
+    sampleType: sample.sampleType,
+    recommended,
+    recorded,
+    missing,
+    nonRecommended,
+    coverageRate,
+    isComplete
+  };
 };

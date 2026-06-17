@@ -168,3 +168,13 @@ export interface BatchReviewFilter {
   studentId: string;
   qualityStatus: ReviewFilterStatus;
 }
+
+export interface MagnificationCoverage {
+  sampleType: string;
+  recommended: string[];
+  recorded: string[];
+  missing: string[];
+  nonRecommended: string[];
+  coverageRate: number;
+  isComplete: boolean;
+}

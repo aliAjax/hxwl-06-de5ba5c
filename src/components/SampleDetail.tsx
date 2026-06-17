@@ -4,13 +4,14 @@ import type {
   MagnificationFormData,
   Role,
   FormErrors,
-  MagnificationRecord
+  MagnificationRecord,
+  MagnificationCoverage
 } from "../types";
 import {
   MAGNIFICATION_GROUPS,
   EMPTY_MAGNIFICATION_FORM
 } from "../constants";
-import { runQualityCheck } from "../utils/qualityCheck";
+import { runQualityCheck, getMagnificationCoverage } from "../utils/qualityCheck";
 import { formatDate, groupMagnifications } from "../utils/format";
 import { MetricCard } from "./MetricCard";
 import { QualityCheckPanel } from "./QualityCheckPanel";
@@ -60,6 +61,19 @@ export function SampleDetail({
 
   const groups = useMemo(() => groupMagnifications(sample.magnifications), [sample.magnifications]);
 
+  const coverage = useMemo<MagnificationCoverage>(
+    () => getMagnificationCoverage(sample),
+    [sample]
+  );
+
+  const sortedMagnificationOptions = useMemo(() => {
+    const missing = coverage.missing;
+    const others = MAGNIFICATION_GROUPS.filter(
+      m => !missing.includes(m as string)
+    );
+    return [...missing, ...others] as readonly string[];
+  }, [coverage.missing]);
+
   const detailFields = [
     { key: "studentName", label: "学生姓名", value: sample.studentName },
     { key: "sampleType", label: "样本类型", value: sample.sampleType },
@@ -80,7 +94,14 @@ export function SampleDetail({
       resetForm();
     } else {
       setEditingId(null);
-      setMagFormData(EMPTY_MAGNIFICATION_FORM);
+      if (coverage.missing.length > 0) {
+        setMagFormData({
+          ...EMPTY_MAGNIFICATION_FORM,
+          magnification: coverage.missing[0]
+        });
+      } else {
+        setMagFormData(EMPTY_MAGNIFICATION_FORM);
+      }
       setMagErrors({});
       setShowForm(true);
     }
@@ -196,6 +217,126 @@ export function SampleDetail({
         <MetricCard label="倍率分组数" value={String(groups.length)} index={0} />
       </section>
 
+      <section className="panel coverage-panel">
+        <div className="section-heading">
+          <div>
+            <p>推荐倍率完成度</p>
+            <h2>
+              观察要求覆盖情况
+              {coverage.recommended.length > 0 && (
+                <span className={`coverage-status-badge ${coverage.isComplete ? "badge-complete" : "badge-incomplete"}`}>
+                  {coverage.isComplete ? "✓ 已完成" : `缺失 ${coverage.missing.length} 项`}
+                </span>
+              )}
+            </h2>
+          </div>
+        </div>
+
+        {coverage.recommended.length > 0 ? (
+          <>
+            <div className="coverage-progress-bar">
+              <div
+                className={`coverage-progress-fill ${coverage.isComplete ? "fill-complete" : "fill-incomplete"}`}
+                style={{ width: `${Math.round(coverage.coverageRate * 100)}%` }}
+              />
+              <span className="coverage-progress-text">
+                {Math.round(coverage.coverageRate * 100)}% 完成
+                （{coverage.recommended.length - coverage.missing.length}/{coverage.recommended.length}）
+              </span>
+            </div>
+
+            <div className="coverage-details">
+              <div className="coverage-group">
+                <h4 className="coverage-group-title">
+                  <span className="status-dot dot-recommended" /> 推荐倍率
+                  <small className="coverage-hint">（{sample.sampleType}常规观察要求）</small>
+                </h4>
+                <div className="coverage-chips">
+                  {coverage.recommended.map(mag => {
+                    const isRecorded = !coverage.missing.includes(mag);
+                    return (
+                      <span
+                        key={mag}
+                        className={`coverage-chip ${isRecorded ? "chip-recorded" : "chip-missing"}`}
+                      >
+                        {isRecorded ? "✓ " : "○ "}
+                        {mag}
+                      </span>
+                    );
+                  })}
+                </div>
+              </div>
+
+              {coverage.missing.length > 0 && (
+                <div className="coverage-group coverage-missing">
+                  <h4 className="coverage-group-title">
+                    <span className="status-dot dot-missing" /> 待补充
+                    <small className="coverage-hint">（建议优先记录）</small>
+                  </h4>
+                  <div className="coverage-chips">
+                    {coverage.missing.map(mag => (
+                      <button
+                        key={mag}
+                        type="button"
+                        className="coverage-chip chip-action"
+                        onClick={() => {
+                          if (currentRole === "student") {
+                            setEditingId(null);
+                            setMagFormData({
+                              ...EMPTY_MAGNIFICATION_FORM,
+                              magnification: mag
+                            });
+                            setMagErrors({});
+                            setShowForm(true);
+                          }
+                        }}
+                        disabled={currentRole !== "student"}
+                      >
+                        + 新增 {mag}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {coverage.nonRecommended.length > 0 && (
+                <div className="coverage-group coverage-nonrecommended">
+                  <h4 className="coverage-group-title">
+                    <span className="status-dot dot-nonrecommended" /> 额外记录
+                    <small className="coverage-hint">（非推荐但已记录）</small>
+                  </h4>
+                  <div className="coverage-chips">
+                    {coverage.nonRecommended.map(mag => (
+                      <span key={mag} className="coverage-chip chip-nonrecommended">
+                        ⚠ {mag}
+                      </span>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
+          </>
+        ) : (
+          <p className="empty-description">
+            当前样本类型暂无推荐倍率规则，请根据实验要求自行记录。
+          </p>
+        )}
+      </section>
+
+      {showForm && coverage.missing.length > 0 && (
+        <div className={`form-hint ${editingId ? "" : "hint-highlight"}`}>
+          {editingId ? (
+            <span>正在编辑视野记录，编辑完成后记得保存修改。</span>
+          ) : (
+            <span>
+              💡 提示：建议优先补充缺失的推荐倍率记录 —
+              <strong> {coverage.missing.join("、")} </strong>
+              ，完成后将获得完整的观察覆盖度。
+            </span>
+          )}
+        </div>
+      )}
+
       <section className="panel detail-content">
         <div className="section-heading">
           <div>
@@ -241,7 +382,7 @@ export function SampleDetail({
                 placeholder="如 100x、200x、400x、1000x"
               />
               <datalist id="magnification-options-detail">
-                {MAGNIFICATION_GROUPS.map(option => (
+                {sortedMagnificationOptions.map(option => (
                   <option key={option} value={option} />
                 ))}
               </datalist>
