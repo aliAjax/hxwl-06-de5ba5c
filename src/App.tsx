@@ -17,6 +17,239 @@ import {
 
 const MAGNIFICATION_GROUPS = ["100x", "200x", "400x", "1000x"] as const;
 
+type QualityLevel = "error" | "warning";
+
+interface QualityIssue {
+  level: QualityLevel;
+  field: string;
+  message: string;
+  suggestion?: string;
+}
+
+interface QualityCheckResult {
+  issues: QualityIssue[];
+  hasErrors: boolean;
+  hasWarnings: boolean;
+  overallStatus: "pass" | "warning" | "error";
+}
+
+interface SampleTypeMagnificationRule {
+  sampleType: string;
+  recommended: string[];
+  minRecommended: string;
+  maxRecommended: string;
+}
+
+const SAMPLE_TYPE_MAGNIFICATION_RULES: SampleTypeMagnificationRule[] = [
+  {
+    sampleType: "植物组织",
+    recommended: ["100x", "200x", "400x"],
+    minRecommended: "100x",
+    maxRecommended: "400x"
+  },
+  {
+    sampleType: "动物组织",
+    recommended: ["100x", "200x", "400x"],
+    minRecommended: "100x",
+    maxRecommended: "400x"
+  },
+  {
+    sampleType: "微生物",
+    recommended: ["400x", "1000x"],
+    minRecommended: "400x",
+    maxRecommended: "1000x"
+  },
+  {
+    sampleType: "血液涂片",
+    recommended: ["400x", "1000x"],
+    minRecommended: "400x",
+    maxRecommended: "1000x"
+  }
+];
+
+const MIN_FIELD_DESCRIPTION_LENGTH = 8;
+
+const parseMagValue = (mag: string): number => {
+  const match = mag.match(/^(\d+)x$/i);
+  return match ? parseInt(match[1], 10) : 0;
+};
+
+const getMagnificationRule = (sampleType: string): SampleTypeMagnificationRule | undefined => {
+  return SAMPLE_TYPE_MAGNIFICATION_RULES.find(
+    rule => rule.sampleType === sampleType
+  );
+};
+
+const runQualityCheck = (
+  data: {
+    sampleName?: string;
+    sampleType?: string;
+    stainingMethod?: string;
+    magnification?: string;
+    observedStructure?: string;
+    fieldDescription?: string;
+  },
+  checkSampleLevel: boolean = true
+): QualityCheckResult => {
+  const issues: QualityIssue[] = [];
+
+  if (checkSampleLevel) {
+    if (!data.sampleName?.trim()) {
+      issues.push({
+        level: "error",
+        field: "sampleName",
+        message: "样本名称不能为空",
+        suggestion: "请填写玻片的样本名称，如「洋葱表皮」"
+      });
+    }
+
+    if (!data.sampleType?.trim()) {
+      issues.push({
+        level: "error",
+        field: "sampleType",
+        message: "样本类型为必填项",
+        suggestion: "请选择正确的样本类型分类"
+      });
+    }
+
+    if (!data.stainingMethod?.trim()) {
+      issues.push({
+        level: "error",
+        field: "stainingMethod",
+        message: "染色方式为必填项",
+        suggestion: "请选择样本使用的染色方法"
+      });
+    }
+  }
+
+  if (!data.magnification?.trim()) {
+    issues.push({
+      level: "error",
+      field: "magnification",
+      message: "放大倍数为必填项",
+      suggestion: "请填写放大倍数，如 100x、400x"
+    });
+  } else if (!/^\d+x$/i.test(data.magnification.trim())) {
+    issues.push({
+      level: "error",
+      field: "magnification",
+      message: "放大倍数格式不正确",
+      suggestion: "请使用「数字+x」的格式，如 100x、400x、1000x"
+    });
+  } else if (data.sampleType?.trim()) {
+    const rule = getMagnificationRule(data.sampleType.trim());
+    if (rule) {
+      const magValue = parseMagValue(data.magnification.trim());
+      const minValue = parseMagValue(rule.minRecommended);
+      const maxValue = parseMagValue(rule.maxRecommended);
+
+      if (magValue < minValue) {
+        issues.push({
+          level: "warning",
+          field: "magnification",
+          message: `放大倍数偏低，${data.sampleType}建议使用 ${rule.recommended.join("、")}`,
+          suggestion: `${rule.minRecommended} 以下可能无法清晰观察到${data.sampleType}的典型结构`
+        });
+      } else if (magValue > maxValue) {
+        issues.push({
+          level: "warning",
+          field: "magnification",
+          message: `放大倍数偏高，${data.sampleType}建议使用 ${rule.recommended.join("、")}`,
+          suggestion: `${rule.maxRecommended} 以上可能超出${data.sampleType}观察的常用范围`
+        });
+      } else if (!rule.recommended.includes(data.magnification.trim().toLowerCase())) {
+        issues.push({
+          level: "warning",
+          field: "magnification",
+          message: `非${data.sampleType}的常用倍率，推荐 ${rule.recommended.join("、")}`,
+          suggestion: "请确认当前放大倍数是否适合观察该样本类型"
+        });
+      }
+    }
+  }
+
+  if (!data.observedStructure?.trim()) {
+    issues.push({
+      level: "error",
+      field: "observedStructure",
+      message: "重点结构不能为空",
+      suggestion: "请填写本次观察到的重点结构名称，如「细胞壁」「细胞核」"
+    });
+  } else if (data.observedStructure.trim().length < 2) {
+    issues.push({
+      level: "warning",
+      field: "observedStructure",
+      message: "重点结构描述过短",
+      suggestion: "建议使用更具体的结构名称，至少2个字符"
+    });
+  }
+
+  if (!data.fieldDescription?.trim()) {
+    issues.push({
+      level: "warning",
+      field: "fieldDescription",
+      message: "视野描述为空",
+      suggestion: "建议填写视野中的观察到的具体现象，便于后期回顾"
+    });
+  } else if (data.fieldDescription.trim().length < MIN_FIELD_DESCRIPTION_LENGTH) {
+    issues.push({
+      level: "warning",
+      field: "fieldDescription",
+      message: `视野描述过短（仅 ${data.fieldDescription.trim().length} 字）`,
+      suggestion: `建议描述至少 ${MIN_FIELD_DESCRIPTION_LENGTH} 个字，记录观察到的细节和特征`
+    });
+  }
+
+  const hasErrors = issues.some(i => i.level === "error");
+  const hasWarnings = issues.some(i => i.level === "warning");
+  const overallStatus = hasErrors ? "error" : hasWarnings ? "warning" : "pass";
+
+  return { issues, hasErrors, hasWarnings, overallStatus };
+};
+
+const getSampleQualityStatus = (sample: Sample): QualityCheckResult => {
+  const allIssues: QualityIssue[] = [];
+
+  if (!sample.sampleName?.trim()) {
+    allIssues.push({ level: "error", field: "sampleName", message: "样本名称缺失" });
+  }
+  if (!sample.sampleType?.trim()) {
+    allIssues.push({ level: "error", field: "sampleType", message: "样本类型缺失" });
+  }
+  if (!sample.stainingMethod?.trim()) {
+    allIssues.push({ level: "error", field: "stainingMethod", message: "染色方式缺失" });
+  }
+
+  if (sample.magnifications.length === 0) {
+    allIssues.push({ level: "error", field: "magnifications", message: "无任何视野记录" });
+  } else {
+    sample.magnifications.forEach((rec, idx) => {
+      const recCheck = runQualityCheck(
+        {
+          sampleType: sample.sampleType,
+          magnification: rec.magnification,
+          observedStructure: rec.observedStructure,
+          fieldDescription: rec.fieldDescription
+        },
+        false
+      );
+      recCheck.issues.forEach(issue => {
+        allIssues.push({
+          ...issue,
+          field: `[第${idx + 1}条视野] ${issue.field}`,
+          message: `[第${idx + 1}条视野-${rec.magnification}] ${issue.message}`
+        });
+      });
+    });
+  }
+
+  const hasErrors = allIssues.some(i => i.level === "error");
+  const hasWarnings = allIssues.some(i => i.level === "warning");
+  const overallStatus = hasErrors ? "error" : hasWarnings ? "warning" : "pass";
+
+  return { issues: allIssues, hasErrors, hasWarnings, overallStatus };
+};
+
 interface SampleFormData {
   sampleName: string;
   sampleType: string;
@@ -239,6 +472,125 @@ function MetricCard({ label, value, index }: { label: string; value: string; ind
   );
 }
 
+function QualityCheckPanel({
+  result,
+  title = "观察质量检查"
+}: {
+  result: QualityCheckResult;
+  title?: string;
+}) {
+  const errors = result.issues.filter(i => i.level === "error");
+  const warnings = result.issues.filter(i => i.level === "warning");
+
+  const statusConfig = {
+    pass: { label: "✓ 质量达标", class: "quality-pass", icon: "✅" },
+    warning: { label: "⚠ 有改进空间", class: "quality-warning", icon: "⚠️" },
+    error: { label: "✗ 存在严重问题", class: "quality-error", icon: "❌" }
+  };
+
+  const config = statusConfig[result.overallStatus];
+
+  return (
+    <div className={`quality-check-panel ${config.class}`}>
+      <div className="quality-check-header">
+        <div className="quality-status-icon">{config.icon}</div>
+        <div>
+          <h4>{title}</h4>
+          <p className={`quality-status-text ${config.class}-text`}>{config.label}</p>
+        </div>
+        <div className="quality-counts">
+          {errors.length > 0 && (
+            <span className="quality-count error-count">严重 {errors.length}</span>
+          )}
+          {warnings.length > 0 && (
+            <span className="quality-count warning-count">提醒 {warnings.length}</span>
+          )}
+        </div>
+      </div>
+
+      {result.issues.length > 0 && (
+        <ul className="quality-issue-list">
+          {errors.map((issue, idx) => (
+            <li key={`err-${idx}`} className="quality-issue error-issue">
+              <span className="issue-level-badge error-badge">严重</span>
+              <div className="issue-content">
+                <p className="issue-message">{issue.message}</p>
+                {issue.suggestion && <p className="issue-suggestion">💡 {issue.suggestion}</p>}
+              </div>
+            </li>
+          ))}
+          {warnings.map((issue, idx) => (
+            <li key={`warn-${idx}`} className="quality-issue warning-issue">
+              <span className="issue-level-badge warning-badge">提醒</span>
+              <div className="issue-content">
+                <p className="issue-message">{issue.message}</p>
+                {issue.suggestion && <p className="issue-suggestion">💡 {issue.suggestion}</p>}
+              </div>
+            </li>
+          ))}
+        </ul>
+      )}
+    </div>
+  );
+}
+
+function QualityBadge({ status }: { status: "pass" | "warning" | "error" }) {
+  const badgeConfig = {
+    pass: { label: "质量达标", class: "quality-badge-pass" },
+    warning: { label: "待改进", class: "quality-badge-warning" },
+    error: { label: "质量问题", class: "quality-badge-error" }
+  };
+  const config = badgeConfig[status];
+  return <span className={`quality-badge ${config.class}`}>{config.label}</span>;
+}
+
+interface ConfirmDialogProps {
+  isOpen: boolean;
+  title: string;
+  message: string;
+  icon?: string;
+  confirmText?: string;
+  cancelText?: string;
+  onConfirm: () => void;
+  onCancel: () => void;
+  children?: React.ReactNode;
+}
+
+function ConfirmDialog({
+  isOpen,
+  title,
+  message,
+  icon = "⚠️",
+  confirmText = "确认提交",
+  cancelText = "返回修改",
+  onConfirm,
+  onCancel,
+  children
+}: ConfirmDialogProps) {
+  if (!isOpen) return null;
+
+  return (
+    <div className="confirm-dialog-overlay" onClick={onCancel}>
+      <div className="confirm-dialog" onClick={(e) => e.stopPropagation()}>
+        <div className="confirm-dialog-header">
+          <span className="confirm-dialog-icon">{icon}</span>
+          <h3>{title}</h3>
+        </div>
+        <div className="confirm-dialog-body">
+          <p>{message}</p>
+          {children}
+        </div>
+        <div className="confirm-dialog-footer">
+          <button type="button" onClick={onCancel}>{cancelText}</button>
+          <button type="button" className="primary-action" onClick={onConfirm}>
+            {confirmText}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 const formatDate = (dateString: string) => {
   const date = new Date(dateString);
   return date.toLocaleDateString("zh-CN", {
@@ -307,8 +659,8 @@ function SampleDetail({
 }: {
   sample: Sample;
   onBack: () => void;
-  onAddMagnification: (sampleId: string, data: MagnificationFormData) => void;
-  onUpdateMagnification: (sampleId: string, magId: string, data: MagnificationFormData) => void;
+  onAddMagnification: (sampleId: string, data: MagnificationFormData, forceSubmit?: boolean) => void;
+  onUpdateMagnification: (sampleId: string, magId: string, data: MagnificationFormData, forceSubmit?: boolean) => void;
   onDeleteMagnification: (sampleId: string, magId: string) => void;
   onToggleQualified?: (sampleId: string, magId: string, qualified: boolean) => void;
   currentRole: Role;
@@ -318,6 +670,22 @@ function SampleDetail({
   const [editingId, setEditingId] = useState<string | null>(null);
   const [magFormData, setMagFormData] = useState<MagnificationFormData>(emptyMagnificationForm);
   const [magErrors, setMagErrors] = useState<FormErrors>({});
+  const [magConfirmDialog, setMagConfirmDialog] = useState<{
+    isOpen: boolean;
+    mode: "add" | "edit" | null;
+  }>({ isOpen: false, mode: null });
+
+  const magQualityResult = useMemo(() => {
+    return runQualityCheck(
+      {
+        sampleType: sample.sampleType,
+        magnification: magFormData.magnification,
+        observedStructure: magFormData.observedStructure,
+        fieldDescription: magFormData.fieldDescription
+      },
+      false
+    );
+  }, [magFormData, sample.sampleType]);
 
   const groups = useMemo(() => groupMagnifications(sample.magnifications), [sample.magnifications]);
 
@@ -369,15 +737,51 @@ function SampleDetail({
     return Object.keys(newErrors).length === 0;
   };
 
-  const handleMagSubmit = (e: FormEvent<HTMLFormElement>) => {
+  const handleMagSubmit = (e: FormEvent<HTMLFormElement>, forceSubmit: boolean = false) => {
     e.preventDefault();
     if (!validateMagForm()) return;
+
+    const qualityResult = runQualityCheck(
+      {
+        sampleType: sample.sampleType,
+        magnification: magFormData.magnification,
+        observedStructure: magFormData.observedStructure,
+        fieldDescription: magFormData.fieldDescription
+      },
+      false
+    );
+
+    if (qualityResult.hasErrors) {
+      const firstError = qualityResult.issues.find(i => i.level === "error");
+      alert(`保存失败：${firstError?.message || "存在必填项未填写，请检查后再提交。"}`);
+      return;
+    }
+
+    if (qualityResult.hasWarnings && !forceSubmit) {
+      setMagConfirmDialog({ isOpen: true, mode: editingId ? "edit" : "add" });
+      return;
+    }
+
     if (editingId) {
-      onUpdateMagnification(sample.id, editingId, magFormData);
+      onUpdateMagnification(sample.id, editingId, magFormData, true);
     } else {
-      onAddMagnification(sample.id, magFormData);
+      onAddMagnification(sample.id, magFormData, true);
     }
     resetForm();
+  };
+
+  const handleConfirmMagSubmit = () => {
+    if (magConfirmDialog.mode === "edit" && editingId) {
+      onUpdateMagnification(sample.id, editingId, magFormData, true);
+    } else {
+      onAddMagnification(sample.id, magFormData, true);
+    }
+    setMagConfirmDialog({ isOpen: false, mode: null });
+    resetForm();
+  };
+
+  const handleCancelMagConfirm = () => {
+    setMagConfirmDialog({ isOpen: false, mode: null });
   };
 
   const handleEditMagnification = (record: MagnificationRecord) => {
@@ -452,7 +856,7 @@ function SampleDetail({
         </div>
 
         {showForm && (
-          <form onSubmit={handleMagSubmit} className="magnification-form field-grid">
+          <form onSubmit={(e) => handleMagSubmit(e)} className="magnification-form field-grid">
             <label className={magErrors.magnification ? "field-error" : ""}>
               <span>
                 放大倍数
@@ -501,6 +905,9 @@ function SampleDetail({
                 <small className="error-text">{magErrors.fieldDescription}</small>
               )}
             </label>
+            <div style={{ gridColumn: "1 / -1" }}>
+              <QualityCheckPanel result={magQualityResult} title="视野记录质量检查" />
+            </div>
             <div className="form-actions">
               <button type="button" onClick={resetForm}>取消</button>
               <button type="submit" className="primary-action">
@@ -509,6 +916,19 @@ function SampleDetail({
             </div>
           </form>
         )}
+
+        <ConfirmDialog
+          isOpen={magConfirmDialog.isOpen}
+          title="存在需要注意的问题"
+          icon="⚠️"
+          message="当前记录存在一些提醒项，虽然可以继续保存，但建议先进行优化。是否确认提交？"
+          confirmText="仍要提交"
+          cancelText="返回修改"
+          onConfirm={handleConfirmMagSubmit}
+          onCancel={handleCancelMagConfirm}
+        >
+          <QualityCheckPanel result={magQualityResult} title="检查结果详情" />
+        </ConfirmDialog>
 
         <div className="magnification-groups">
           {groups.length === 0 ? (
@@ -688,6 +1108,21 @@ function RoleSelector({
   );
 }
 
+interface StudentWorkbenchProps {
+  currentUser: User;
+  samples: Sample[];
+  sampleCategories: SampleCategory[];
+  stainingMethods: StainingMethod[];
+  formData: SampleFormData;
+  errors: FormErrors;
+  selectedTemplate: string | null;
+  qualityResult: QualityCheckResult;
+  onTemplateSelect: (template: ObservationTemplate) => void;
+  onInputChange: (e: ChangeEvent<HTMLInputElement | HTMLSelectElement>) => void;
+  onSubmit: (e: FormEvent<HTMLFormElement>, forceSubmit?: boolean) => void;
+  onSampleClick: (sample: Sample) => void;
+}
+
 function StudentWorkbench({
   currentUser,
   samples,
@@ -696,23 +1131,12 @@ function StudentWorkbench({
   formData,
   errors,
   selectedTemplate,
+  qualityResult,
   onTemplateSelect,
   onInputChange,
   onSubmit,
   onSampleClick
-}: {
-  currentUser: User;
-  samples: Sample[];
-  sampleCategories: SampleCategory[];
-  stainingMethods: StainingMethod[];
-  formData: SampleFormData;
-  errors: FormErrors;
-  selectedTemplate: string | null;
-  onTemplateSelect: (template: ObservationTemplate) => void;
-  onInputChange: (e: ChangeEvent<HTMLInputElement | HTMLSelectElement>) => void;
-  onSubmit: (e: FormEvent<HTMLFormElement>) => void;
-  onSampleClick: (sample: Sample) => void;
-}) {
+}: StudentWorkbenchProps) {
   const mySamples = samples.filter(s => s.studentId === currentUser.id);
 
   const myMetrics = useMemo(() => {
@@ -808,6 +1232,8 @@ function StudentWorkbench({
             提交后将创建样本并录入第一条倍率视野记录，可在样本详情中继续补充 100x、200x、400x、1000x 等其他倍率观察结果。
           </p>
 
+          <QualityCheckPanel result={qualityResult} title="观察质量预检" />
+
           <form onSubmit={onSubmit} className="field-grid">
             {project.fields.map(field => (
               <label key={field.key} className={errors[field.key as keyof FormErrors] ? "field-error" : ""}>
@@ -891,16 +1317,20 @@ function StudentWorkbench({
 
               const qualifiedCount = sample.magnifications.filter(r => r.isQualified === true).length;
               const pendingCount = sample.magnifications.filter(r => r.isQualified === undefined).length;
+              const sampleQuality = getSampleQualityStatus(sample);
 
               return (
                 <article
                   key={sample.id}
-                  className="record-card clickable"
+                  className={`record-card clickable quality-card-${sampleQuality.overallStatus}`}
                   onClick={() => onSampleClick(sample)}
                 >
                   <div className="record-index">{String(index + 1).padStart(2, "0")}</div>
                   <div className="record-summary">
-                    <h3>{sample.sampleName}</h3>
+                    <div className="record-title-row">
+                      <h3>{sample.sampleName}</h3>
+                      <QualityBadge status={sampleQuality.overallStatus} />
+                    </div>
                     <p>
                       {sample.sampleType} · {sample.stainingMethod} · 视野记录 {sample.magnifications.length} 条
                     </p>
@@ -1268,6 +1698,7 @@ function App() {
   const [users] = useState<User[]>(defaultUsers);
   const [sampleCategories, setSampleCategories] = useState<SampleCategory[]>(defaultSampleCategories);
   const [stainingMethods, setStainingMethods] = useState<StainingMethod[]>(defaultStainingMethods);
+  const [submitConfirmDialog, setSubmitConfirmDialog] = useState(false);
 
   useEffect(() => {
     const initDatabase = async () => {
@@ -1378,6 +1809,17 @@ function App() {
     }));
   }, [samples]);
 
+  const qualityResult = useMemo(() => {
+    return runQualityCheck({
+      sampleName: formData.sampleName,
+      sampleType: formData.sampleType,
+      stainingMethod: formData.stainingMethod,
+      magnification: formData.magnification,
+      observedStructure: formData.observedStructure,
+      fieldDescription: formData.fieldDescription
+    }, true);
+  }, [formData]);
+
   const handleInputChange = (e: ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
     const { name, value } = e.target;
     setFormData(prev => ({ ...prev, [name]: value }));
@@ -1392,13 +1834,14 @@ function App() {
     project.fields.forEach(field => {
       const key = field.key as keyof SampleFormData;
       const value = formData[key];
+      const errKey = key as keyof FormErrors;
 
       if (field.required && !value.trim()) {
-        newErrors[key] = `${field.label}为必填项`;
+        newErrors[errKey] = `${field.label}为必填项`;
       }
 
       if (field.pattern && value.trim() && !field.pattern.test(value)) {
-        newErrors[key] = `${field.label}格式应为 数字+x，如 100x、400x`;
+        newErrors[errKey] = `${field.label}格式应为 数字+x，如 100x、400x`;
       }
     });
 
@@ -1406,10 +1849,7 @@ function App() {
     return Object.keys(newErrors).length === 0;
   };
 
-  const handleSubmit = (e: FormEvent<HTMLFormElement>) => {
-    e.preventDefault();
-
-    if (!validateForm()) return;
+  const doSubmitSample = () => {
     if (!currentUser) return;
 
     const now = new Date().toISOString();
@@ -1458,6 +1898,47 @@ function App() {
     setFormData(initialFormData);
     setErrors({});
     setSelectedTemplate(null);
+    setSubmitConfirmDialog(false);
+  };
+
+  const handleSubmit = (e: FormEvent<HTMLFormElement>, forceSubmit: boolean = false) => {
+    e.preventDefault();
+
+    if (!validateForm()) return;
+    if (!currentUser) return;
+
+    const checkResult = runQualityCheck(
+      {
+        sampleName: formData.sampleName,
+        sampleType: formData.sampleType,
+        stainingMethod: formData.stainingMethod,
+        magnification: formData.magnification,
+        observedStructure: formData.observedStructure,
+        fieldDescription: formData.fieldDescription
+      },
+      true
+    );
+
+    if (checkResult.hasErrors) {
+      const firstError = checkResult.issues.find(i => i.level === "error");
+      alert(`保存失败：${firstError?.message || "存在必填项未填写或格式不正确，请检查后再提交。"}`);
+      return;
+    }
+
+    if (checkResult.hasWarnings && !forceSubmit) {
+      setSubmitConfirmDialog(true);
+      return;
+    }
+
+    doSubmitSample();
+  };
+
+  const handleConfirmSubmit = () => {
+    doSubmitSample();
+  };
+
+  const handleCancelSubmit = () => {
+    setSubmitConfirmDialog(false);
   };
 
   const handleSampleClick = (sample: Sample) => {
@@ -1470,7 +1951,7 @@ function App() {
     setSelectedSampleId(null);
   };
 
-  const handleAddMagnification = (sampleId: string, data: MagnificationFormData) => {
+  const handleAddMagnification = (sampleId: string, data: MagnificationFormData, _forceSubmit: boolean = true) => {
     const newSamples = samples.map(sample =>
       sample.id === sampleId
         ? {
@@ -1495,7 +1976,8 @@ function App() {
   const handleUpdateMagnification = (
     sampleId: string,
     magId: string,
-    data: MagnificationFormData
+    data: MagnificationFormData,
+    _forceSubmit: boolean = true
   ) => {
     const newSamples = samples.map(sample =>
       sample.id === sampleId
@@ -1630,6 +2112,7 @@ function App() {
               formData={formData}
               errors={errors}
               selectedTemplate={selectedTemplate}
+              qualityResult={qualityResult}
               onTemplateSelect={handleTemplateSelect}
               onInputChange={handleInputChange}
               onSubmit={handleSubmit}
@@ -1687,6 +2170,19 @@ function App() {
           />
         )
       )}
+
+      <ConfirmDialog
+        isOpen={submitConfirmDialog}
+        title="存在需要注意的问题"
+        icon="⚠️"
+        message="当前记录存在一些提醒项，虽然可以继续保存，但建议先进行优化。是否确认提交？"
+        confirmText="仍要提交"
+        cancelText="返回修改"
+        onConfirm={handleConfirmSubmit}
+        onCancel={handleCancelSubmit}
+      >
+        <QualityCheckPanel result={qualityResult} title="检查结果详情" />
+      </ConfirmDialog>
     </main>
   );
 }
