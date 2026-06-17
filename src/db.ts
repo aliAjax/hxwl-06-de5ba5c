@@ -19,9 +19,15 @@ interface LegacyRecord {
   createdAt: string;
 }
 
+interface MetadataEntry {
+  key: string;
+  value: unknown;
+}
+
 const DB_NAME = "microscope-observation-db";
-const DB_VERSION = 1;
-const STORE_NAME = "samples";
+const DB_VERSION = 2;
+const STORE_SAMPLES = "samples";
+const STORE_METADATA = "metadata";
 
 export const defaultUsers: User[] = [
   { id: "student-1", name: "张三", role: "student" },
@@ -93,7 +99,9 @@ const initialLegacyRecords: (LegacyRecord & { studentId: string; studentName: st
   }
 ];
 
-const migrateToSamples = (records: (LegacyRecord & { studentId: string; studentName: string })[]): Sample[] => {
+const migrateLegacyRecordsToSamples = (
+  records: (LegacyRecord & { studentId: string; studentName: string })[]
+): Sample[] => {
   const sampleMap = new Map<string, Sample>();
   records.forEach((record, index) => {
     const magnificationRecord: MagnificationRecord = {
@@ -124,7 +132,7 @@ const migrateToSamples = (records: (LegacyRecord & { studentId: string; studentN
 };
 
 export const getInitialSamples = (): Sample[] => {
-  return migrateToSamples(initialLegacyRecords);
+  return migrateLegacyRecordsToSamples(initialLegacyRecords);
 };
 
 export const isIndexedDBSupported = (): boolean => {
@@ -162,15 +170,61 @@ export class ObservationDatabase {
 
       request.onupgradeneeded = (event) => {
         const db = (event.target as IDBOpenDBRequest).result;
-        if (!db.objectStoreNames.contains(STORE_NAME)) {
-          const store = db.createObjectStore(STORE_NAME, { keyPath: "id" });
-          store.createIndex("sampleName", "sampleName", { unique: false });
-          store.createIndex("createdAt", "createdAt", { unique: false });
+        const oldVersion = event.oldVersion || 0;
+
+        if (oldVersion < 1) {
+          this.migrateFrom0To1(db);
+        }
+        if (oldVersion < 2) {
+          const tx = (event.target as IDBOpenDBRequest).transaction;
+          this.migrateFrom1To2(db, tx);
         }
       };
     });
 
     return this.initPromise;
+  }
+
+  private migrateFrom0To1(db: IDBDatabase): void {
+    if (!db.objectStoreNames.contains(STORE_SAMPLES)) {
+      const store = db.createObjectStore(STORE_SAMPLES, { keyPath: "id" });
+      store.createIndex("sampleName", "sampleName", { unique: false });
+      store.createIndex("createdAt", "createdAt", { unique: false });
+      store.createIndex("studentId", "studentId", { unique: false });
+    }
+  }
+
+  private migrateFrom1To2(db: IDBDatabase, transaction?: IDBTransaction | null): void {
+    if (!db.objectStoreNames.contains(STORE_METADATA)) {
+      db.createObjectStore(STORE_METADATA, { keyPath: "key" });
+    }
+
+    if (db.objectStoreNames.contains(STORE_SAMPLES) && transaction) {
+      const store = transaction.objectStore(STORE_SAMPLES);
+      const request = store.getAll();
+      request.onsuccess = () => {
+        const samples = request.result as Sample[];
+        samples.forEach(sample => {
+          let changed = false;
+          sample.magnifications = sample.magnifications.map(rec => {
+            const lowerMag = rec.magnification.toLowerCase();
+            if (rec.magnification !== lowerMag) {
+              rec.magnification = lowerMag;
+              changed = true;
+            }
+            return rec;
+          });
+          if (!sample.studentId) {
+            sample.studentId = "student-1";
+            sample.studentName = "张三";
+            changed = true;
+          }
+          if (changed) {
+            store.put(sample);
+          }
+        });
+      };
+    }
   }
 
   private ensureInitialized(): void {
@@ -179,12 +233,37 @@ export class ObservationDatabase {
     }
   }
 
+  async getMetadata<T = unknown>(key: string): Promise<T | undefined> {
+    this.ensureInitialized();
+    return new Promise((resolve, reject) => {
+      const transaction = this.db!.transaction(STORE_METADATA, "readonly");
+      const store = transaction.objectStore(STORE_METADATA);
+      const request = store.get(key);
+      request.onsuccess = () => {
+        const entry = request.result as MetadataEntry | undefined;
+        resolve(entry?.value as T | undefined);
+      };
+      request.onerror = () => reject(request.error);
+    });
+  }
+
+  async setMetadata(key: string, value: unknown): Promise<void> {
+    this.ensureInitialized();
+    return new Promise((resolve, reject) => {
+      const transaction = this.db!.transaction(STORE_METADATA, "readwrite");
+      const store = transaction.objectStore(STORE_METADATA);
+      store.put({ key, value });
+      transaction.oncomplete = () => resolve();
+      transaction.onerror = () => reject(transaction.error);
+    });
+  }
+
   async getAllSamples(): Promise<Sample[]> {
     this.ensureInitialized();
 
     return new Promise((resolve, reject) => {
-      const transaction = this.db!.transaction(STORE_NAME, "readonly");
-      const store = transaction.objectStore(STORE_NAME);
+      const transaction = this.db!.transaction(STORE_SAMPLES, "readonly");
+      const store = transaction.objectStore(STORE_SAMPLES);
       const request = store.getAll();
 
       request.onsuccess = () => {
@@ -203,8 +282,8 @@ export class ObservationDatabase {
     this.ensureInitialized();
 
     return new Promise((resolve, reject) => {
-      const transaction = this.db!.transaction(STORE_NAME, "readwrite");
-      const store = transaction.objectStore(STORE_NAME);
+      const transaction = this.db!.transaction(STORE_SAMPLES, "readwrite");
+      const store = transaction.objectStore(STORE_SAMPLES);
       const request = store.put(sample);
 
       request.onsuccess = () => {
@@ -221,8 +300,8 @@ export class ObservationDatabase {
     this.ensureInitialized();
 
     return new Promise((resolve, reject) => {
-      const transaction = this.db!.transaction(STORE_NAME, "readwrite");
-      const store = transaction.objectStore(STORE_NAME);
+      const transaction = this.db!.transaction(STORE_SAMPLES, "readwrite");
+      const store = transaction.objectStore(STORE_SAMPLES);
 
       samples.forEach(sample => {
         store.put(sample);
@@ -242,8 +321,8 @@ export class ObservationDatabase {
     this.ensureInitialized();
 
     return new Promise((resolve, reject) => {
-      const transaction = this.db!.transaction(STORE_NAME, "readwrite");
-      const store = transaction.objectStore(STORE_NAME);
+      const transaction = this.db!.transaction(STORE_SAMPLES, "readwrite");
+      const store = transaction.objectStore(STORE_SAMPLES);
       const request = store.delete(sampleId);
 
       request.onsuccess = () => {
@@ -260,8 +339,8 @@ export class ObservationDatabase {
     this.ensureInitialized();
 
     return new Promise((resolve, reject) => {
-      const transaction = this.db!.transaction(STORE_NAME, "readwrite");
-      const store = transaction.objectStore(STORE_NAME);
+      const transaction = this.db!.transaction(STORE_SAMPLES, "readwrite");
+      const store = transaction.objectStore(STORE_SAMPLES);
       const request = store.clear();
 
       request.onsuccess = () => {
@@ -278,8 +357,8 @@ export class ObservationDatabase {
     this.ensureInitialized();
 
     return new Promise((resolve, reject) => {
-      const transaction = this.db!.transaction(STORE_NAME, "readonly");
-      const store = transaction.objectStore(STORE_NAME);
+      const transaction = this.db!.transaction(STORE_SAMPLES, "readonly");
+      const store = transaction.objectStore(STORE_SAMPLES);
       const request = store.count();
 
       request.onsuccess = () => {

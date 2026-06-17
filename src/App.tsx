@@ -24,11 +24,8 @@ import {
   generateReportPlainText
 } from "./utils/reportGenerator";
 import { useSamples } from "./hooks/useSamples";
-import {
-  defaultUsers,
-  defaultSampleCategories,
-  defaultStainingMethods
-} from "./db";
+import { useAdminConfig } from "./hooks/useAdminConfig";
+import { defaultUsers } from "./db";
 import { MetricCard } from "./components/MetricCard";
 import { QualityCheckPanel } from "./components/QualityCheckPanel";
 import { ConfirmDialog } from "./components/ConfirmDialog";
@@ -49,12 +46,19 @@ function App() {
   const [currentRole, setCurrentRole] = useState<Role>("student");
   const [currentUser, setCurrentUser] = useState<User | null>(defaultUsers[0]);
   const [users] = useState<User[]>(defaultUsers);
-  const [sampleCategories, setSampleCategories] = useState<SampleCategory[]>(defaultSampleCategories);
-  const [stainingMethods, setStainingMethods] = useState<StainingMethod[]>(defaultStainingMethods);
   const [submitConfirmDialog, setSubmitConfirmDialog] = useState(false);
   const [reportDialogOpen, setReportDialogOpen] = useState(false);
   const [reportData, setReportData] = useState<ReportData | null>(null);
   const [reportPlainText, setReportPlainText] = useState<string>("");
+
+  const {
+    sampleCategories,
+    stainingMethods,
+    addCategory,
+    deleteCategory,
+    addStainingMethod,
+    deleteStainingMethod
+  } = useAdminConfig();
 
   const {
     samples,
@@ -224,30 +228,6 @@ function App() {
     toggleQualified(sampleId, magId, qualified, currentUser.name);
   };
 
-  const handleAddCategory = (name: string) => {
-    const newCategory: SampleCategory = {
-      id: `cat-${Date.now()}`,
-      name
-    };
-    setSampleCategories(prev => [...prev, newCategory]);
-  };
-
-  const handleDeleteCategory = (id: string) => {
-    setSampleCategories(prev => prev.filter(c => c.id !== id));
-  };
-
-  const handleAddStainingMethod = (name: string) => {
-    const newMethod: StainingMethod = {
-      id: `stain-${Date.now()}`,
-      name
-    };
-    setStainingMethods(prev => [...prev, newMethod]);
-  };
-
-  const handleDeleteStainingMethod = (id: string) => {
-    setStainingMethods(prev => prev.filter(s => s.id !== id));
-  };
-
   const handleExportSummary = () => {
     const generatedReport = generateObservationReport(samples);
     const plainText = generateReportPlainText(generatedReport);
@@ -342,10 +322,10 @@ function App() {
               currentUser={currentUser}
               sampleCategories={sampleCategories}
               stainingMethods={stainingMethods}
-              onAddCategory={handleAddCategory}
-              onDeleteCategory={handleDeleteCategory}
-              onAddStainingMethod={handleAddStainingMethod}
-              onDeleteStainingMethod={handleDeleteStainingMethod}
+              onAddCategory={addCategory}
+              onDeleteCategory={deleteCategory}
+              onAddStainingMethod={addStainingMethod}
+              onDeleteStainingMethod={deleteStainingMethod}
             />
           )}
 
