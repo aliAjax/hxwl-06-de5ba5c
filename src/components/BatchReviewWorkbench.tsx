@@ -164,16 +164,6 @@ export function BatchReviewWorkbench({
     });
   };
 
-  const handleBatchRejectAll = (sampleId: string) => {
-    const sample = samples.find(s => s.id === sampleId);
-    if (!sample) return;
-    sample.magnifications.forEach(mag => {
-      if (mag.isQualified === undefined) {
-        onToggleQualified(sampleId, mag.id, false);
-      }
-    });
-  };
-
   const handleDeleteWithConfirm = (batchId: string) => {
     if (deleteConfirmId === batchId) {
       onDeleteBatch(batchId);
