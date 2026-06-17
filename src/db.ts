@@ -1,42 +1,13 @@
-export type Role = "student" | "teacher" | "admin";
+import type {
+  Role,
+  User,
+  MagnificationRecord,
+  Sample,
+  SampleCategory,
+  StainingMethod
+} from "./types";
 
-export interface User {
-  id: string;
-  name: string;
-  role: Role;
-}
-
-export interface MagnificationRecord {
-  id: string;
-  magnification: string;
-  observedStructure: string;
-  fieldDescription: string;
-  createdAt: string;
-  isQualified?: boolean;
-  qualifiedAt?: string;
-  reviewedBy?: string;
-}
-
-export interface Sample {
-  id: string;
-  sampleName: string;
-  sampleType: string;
-  stainingMethod: string;
-  createdAt: string;
-  magnifications: MagnificationRecord[];
-  studentId: string;
-  studentName: string;
-}
-
-export interface SampleCategory {
-  id: string;
-  name: string;
-}
-
-export interface StainingMethod {
-  id: string;
-  name: string;
-}
+export type { Role, User, MagnificationRecord, Sample, SampleCategory, StainingMethod };
 
 interface LegacyRecord {
   sampleName: string;
