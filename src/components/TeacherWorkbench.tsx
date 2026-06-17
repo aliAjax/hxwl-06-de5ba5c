@@ -8,7 +8,7 @@ interface TeacherWorkbenchProps {
   users: User[];
   onSampleClick: (sample: Sample) => void;
   onToggleQualified: (sampleId: string, magId: string, qualified: boolean) => void;
-  onExportSummary: () => void;
+  onExportSummary: (filteredSamples: Sample[]) => void;
 }
 
 export function TeacherWorkbench({
@@ -75,7 +75,7 @@ export function TeacherWorkbench({
             <button
               type="button"
               className="export-summary-btn"
-              onClick={onExportSummary}
+              onClick={() => onExportSummary(filteredSamples)}
             >
               📊 记录导出摘要
             </button>

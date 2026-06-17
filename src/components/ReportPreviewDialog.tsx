@@ -1,6 +1,5 @@
 import React, { useState, useRef } from "react";
 import type { ReportData } from "../types";
-import { downloadTextFile } from "../utils/reportGenerator";
 
 interface ReportPreviewDialogProps {
   isOpen: boolean;
@@ -37,12 +36,7 @@ export function ReportPreviewDialog({
 
   if (!isOpen) return null;
 
-  const generateFilename = () => {
-    const now = new Date();
-    const dateStr = `${now.getFullYear()}${String(now.getMonth() + 1).padStart(2, "0")}${String(now.getDate()).padStart(2, "0")}`;
-    const timeStr = `${String(now.getHours()).padStart(2, "0")}${String(now.getMinutes()).padStart(2, "0")}`;
-    return `显微镜观察实验报告_${dateStr}_${timeStr}.txt`;
-  };
+  const hasData = reportData && reportData.totalSamples > 0;
 
   return (
     <div className="report-dialog-overlay" onClick={onClose}>
@@ -125,20 +119,22 @@ export function ReportPreviewDialog({
           </button>
           <button
             type="button"
-            className={`copy-action ${copied ? "copied" : ""}`}
+            className={`copy-action ${copied ? "copied" : ""} ${!hasData ? "disabled" : ""}`}
             onClick={handleCopy}
+            disabled={!hasData}
           >
-            {copied ? "✓ 已复制到剪贴板" : "📋 复制全部内容"}
+            {!hasData ? "⚠ 无内容可复制" : copied ? "✓ 已复制到剪贴板" : "📋 复制全部内容"}
           </button>
           <button
             type="button"
-            className="primary-action download-action"
+            className={`primary-action download-action ${!hasData ? "disabled" : ""}`}
+            disabled={!hasData}
             onClick={() => {
+              if (!hasData) return;
               onDownload();
-              downloadTextFile(reportText, generateFilename());
             }}
           >
-            💾 下载 TXT 文件
+            {hasData ? "💾 下载 TXT 文件" : "⚠ 暂无数据可下载"}
           </button>
         </div>
       </div>

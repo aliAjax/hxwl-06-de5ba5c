@@ -21,7 +21,8 @@ import {
 import { runQualityCheck } from "./utils/qualityCheck";
 import {
   generateObservationReport,
-  generateReportPlainText
+  generateReportPlainText,
+  downloadTextFile
 } from "./utils/reportGenerator";
 import { useSamples } from "./hooks/useSamples";
 import { useBatches } from "./hooks/useBatches";
@@ -245,8 +246,13 @@ function App() {
     toggleQualified(sampleId, magId, qualified, currentUser.name);
   };
 
-  const handleExportSummary = () => {
-    const generatedReport = generateObservationReport(samples);
+  const handleExportSummary = (filteredSamples?: Sample[]) => {
+    const targetSamples = filteredSamples ?? samples;
+    if (targetSamples.length === 0) {
+      alert("暂无任何样本数据，无法生成报告。请先添加观察记录。");
+      return;
+    }
+    const generatedReport = generateObservationReport(targetSamples);
     const plainText = generateReportPlainText(generatedReport);
     setReportData(generatedReport);
     setReportPlainText(plainText);
@@ -258,6 +264,15 @@ function App() {
   };
 
   const handleDownloadReport = () => {
+    if (!reportData || reportData.totalSamples === 0) {
+      alert("暂无任何样本数据，无法下载报告。请先添加观察记录。");
+      return;
+    }
+    const now = new Date();
+    const dateStr = `${now.getFullYear()}${String(now.getMonth() + 1).padStart(2, "0")}${String(now.getDate()).padStart(2, "0")}`;
+    const timeStr = `${String(now.getHours()).padStart(2, "0")}${String(now.getMinutes()).padStart(2, "0")}`;
+    const filename = `显微镜观察实验报告_${dateStr}_${timeStr}.txt`;
+    downloadTextFile(reportPlainText, filename);
   };
 
   const handleTemplateSelect = (template: ObservationTemplate) => {
