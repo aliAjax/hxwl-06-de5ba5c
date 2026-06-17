@@ -17,7 +17,7 @@ interface UseSamplesReturn {
   isLoading: boolean;
   dbStatus: DbStatus;
   dbError: string;
-  addSample: (formData: SampleFormData, currentUserId: string, currentUserName: string) => void;
+  addSample: (formData: SampleFormData, currentUserId: string, currentUserName: string) => string;
   addMagnification: (sampleId: string, data: MagnificationFormData) => void;
   updateMagnification: (sampleId: string, magId: string, data: MagnificationFormData) => void;
   deleteMagnification: (sampleId: string, magId: string) => void;
@@ -84,7 +84,7 @@ export const useSamples = (): UseSamplesReturn => {
   }, []);
 
   const addSample = useCallback(
-    (formData: SampleFormData, currentUserId: string, currentUserName: string) => {
+    (formData: SampleFormData, currentUserId: string, currentUserName: string): string => {
       const now = new Date().toISOString();
 
       const existingSample = samples.find(
@@ -103,15 +103,19 @@ export const useSamples = (): UseSamplesReturn => {
       };
 
       let newSamples: Sample[];
+      let resultingSampleId: string;
+
       if (existingSample) {
+        resultingSampleId = existingSample.id;
         newSamples = samples.map(sample =>
           sample.id === existingSample.id
             ? { ...sample, magnifications: [...sample.magnifications, newMagnification] }
             : sample
         );
       } else {
+        resultingSampleId = `sample-${Date.now()}`;
         const newSample: Sample = {
-          id: `sample-${Date.now()}`,
+          id: resultingSampleId,
           sampleName: formData.sampleName.trim(),
           sampleType: formData.sampleType.trim(),
           stainingMethod: formData.stainingMethod.trim(),
@@ -125,6 +129,7 @@ export const useSamples = (): UseSamplesReturn => {
 
       setSamples(newSamples);
       persistSamples(newSamples);
+      return resultingSampleId;
     },
     [samples, persistSamples]
   );

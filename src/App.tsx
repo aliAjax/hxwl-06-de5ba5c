@@ -163,13 +163,10 @@ function App() {
 
   const doSubmitSample = () => {
     if (!currentUser) return;
-    addSample(formData, currentUser.id, currentUser.name);
+    const sampleId = addSample(formData, currentUser.id, currentUser.name);
     const openBatch = batches.find(b => b.status === "open");
     if (openBatch) {
-      setTimeout(() => {
-        const newSampleId = `sample-${Date.now()}`;
-        addSampleToBatch(openBatch.id, newSampleId);
-      }, 0);
+      addSampleToBatch(openBatch.id, sampleId);
     }
     setFormData(INITIAL_SAMPLE_FORM_DATA);
     setErrors({});

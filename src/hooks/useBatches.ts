@@ -20,6 +20,8 @@ export const useBatches = (parentDbStatus: DbStatus, samples: Sample[]): UseBatc
   const [isLoading, setIsLoading] = useState(true);
   const [dbStatus, setDbStatus] = useState<DbStatus>(parentDbStatus);
   const initializedRef = useRef(false);
+  const samplesRef = useRef(samples);
+  samplesRef.current = samples;
 
   const persistBatches = useCallback(async (newBatches: ObservationBatch[]) => {
     if (dbStatus !== "ready") {
@@ -46,15 +48,25 @@ export const useBatches = (parentDbStatus: DbStatus, samples: Sample[]): UseBatc
       try {
         const savedBatches = await observationDb.getAllBatches();
 
-        if (savedBatches.length === 0 && samples.length > 0) {
-          const initialBatches = getInitialBatches(samples.map(s => s.id));
-          if (initialBatches.length > 0) {
-            await observationDb.saveBatches(initialBatches);
-            setBatches(initialBatches);
+        if (savedBatches.length === 0) {
+          const alreadyInitialized = await observationDb.getMetadata<boolean>("batches.initialized");
+
+          if (!alreadyInitialized && samplesRef.current.length > 0) {
+            const initialBatches = getInitialBatches(samplesRef.current.map(s => s.id));
+            if (initialBatches.length > 0) {
+              await observationDb.saveBatches(initialBatches);
+              await observationDb.setMetadata("batches.initialized", true);
+              setBatches(initialBatches);
+            } else {
+              await observationDb.setMetadata("batches.initialized", true);
+              setBatches([]);
+            }
           } else {
+            await observationDb.setMetadata("batches.initialized", true);
             setBatches([]);
           }
         } else {
+          await observationDb.setMetadata("batches.initialized", true);
           setBatches(savedBatches);
         }
 
@@ -68,7 +80,7 @@ export const useBatches = (parentDbStatus: DbStatus, samples: Sample[]): UseBatc
     };
 
     initBatches();
-  }, [parentDbStatus, samples]);
+  }, [parentDbStatus]);
 
   const createBatch = useCallback(
     (name: string, description: string, userId: string, userName: string) => {
@@ -121,9 +133,13 @@ export const useBatches = (parentDbStatus: DbStatus, samples: Sample[]): UseBatc
     (batchId: string) => {
       const newBatches = batches.filter(b => b.id !== batchId);
       setBatches(newBatches);
-      persistBatches(newBatches);
+      if (dbStatus === "ready") {
+        observationDb.deleteBatch(batchId).catch(err => {
+          console.error("删除批次持久化失败:", err);
+        });
+      }
     },
-    [batches, persistBatches]
+    [batches, dbStatus]
   );
 
   const addSampleToBatch = useCallback(
