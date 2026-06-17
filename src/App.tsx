@@ -82,7 +82,8 @@ function App() {
     closeBatch,
     reopenBatch,
     deleteBatch,
-    addSampleToBatch
+    addSampleToBatch,
+    removeSampleFromBatch
   } = useBatches(dbStatus, samples);
 
   const [teacherSubView, setTeacherSubView] = useState<"overview" | "batch">("overview");
@@ -378,6 +379,8 @@ function App() {
                   onDeleteBatch={deleteBatch}
                   onToggleQualified={handleToggleQualified}
                   onSampleClick={handleSampleClick}
+                  onAddSampleToBatch={addSampleToBatch}
+                  onRemoveSampleFromBatch={removeSampleFromBatch}
                 />
               )}
             </>

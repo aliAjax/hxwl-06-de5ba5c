@@ -18,6 +18,8 @@ interface BatchReviewWorkbenchProps {
   onDeleteBatch: (batchId: string) => void;
   onToggleQualified: (sampleId: string, magId: string, qualified: boolean) => void;
   onSampleClick: (sample: Sample) => void;
+  onAddSampleToBatch: (batchId: string, sampleId: string) => void;
+  onRemoveSampleFromBatch: (batchId: string, sampleId: string) => void;
 }
 
 export function BatchReviewWorkbench({
@@ -30,7 +32,9 @@ export function BatchReviewWorkbench({
   onReopenBatch,
   onDeleteBatch,
   onToggleQualified,
-  onSampleClick
+  onSampleClick,
+  onAddSampleToBatch,
+  onRemoveSampleFromBatch
 }: BatchReviewWorkbenchProps) {
   const [selectedBatchId, setSelectedBatchId] = useState<string | null>(null);
   const [filterSampleType, setFilterSampleType] = useState<string>("all");
@@ -40,6 +44,12 @@ export function BatchReviewWorkbench({
   const [newBatchName, setNewBatchName] = useState("");
   const [newBatchDesc, setNewBatchDesc] = useState("");
   const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null);
+
+  const [showAddSampleDialog, setShowAddSampleDialog] = useState(false);
+  const [searchStudentId, setSearchStudentId] = useState<string>("all");
+  const [searchSampleType, setSearchSampleType] = useState<string>("all");
+  const [searchSampleName, setSearchSampleName] = useState("");
+  const [removeConfirmSampleId, setRemoveConfirmSampleId] = useState<string | null>(null);
 
   const students = users.filter(u => u.role === "student");
   const sampleTypes = [...new Set(samples.map(s => s.sampleType))];
@@ -53,6 +63,28 @@ export function BatchReviewWorkbench({
     if (!selectedBatch) return [];
     return samples.filter(s => selectedBatch.sampleIds.includes(s.id));
   }, [selectedBatch, samples]);
+
+  const isBatchClosed = selectedBatch?.status === "closed";
+
+  const availableSamples = useMemo(() => {
+    if (!selectedBatch) return [];
+    return samples.filter(s => !selectedBatch.sampleIds.includes(s.id));
+  }, [selectedBatch, samples]);
+
+  const filteredAvailableSamples = useMemo(() => {
+    let result = availableSamples;
+    if (searchStudentId !== "all") {
+      result = result.filter(s => s.studentId === searchStudentId);
+    }
+    if (searchSampleType !== "all") {
+      result = result.filter(s => s.sampleType === searchSampleType);
+    }
+    if (searchSampleName.trim()) {
+      const keyword = searchSampleName.trim().toLowerCase();
+      result = result.filter(s => s.sampleName.toLowerCase().includes(keyword));
+    }
+    return result;
+  }, [availableSamples, searchStudentId, searchSampleType, searchSampleName]);
 
   const filteredSamples = useMemo(() => {
     let result = batchSamples;
@@ -148,6 +180,33 @@ export function BatchReviewWorkbench({
     }
   };
 
+  const handleOpenAddSampleDialog = () => {
+    setSearchStudentId("all");
+    setSearchSampleType("all");
+    setSearchSampleName("");
+    setShowAddSampleDialog(true);
+  };
+
+  const handleCloseAddSampleDialog = () => {
+    setShowAddSampleDialog(false);
+  };
+
+  const handleAddSample = (sampleId: string) => {
+    if (!selectedBatchId) return;
+    onAddSampleToBatch(selectedBatchId, sampleId);
+  };
+
+  const handleRemoveSample = (sampleId: string) => {
+    if (!selectedBatchId) return;
+    if (removeConfirmSampleId === sampleId) {
+      onRemoveSampleFromBatch(selectedBatchId, sampleId);
+      setRemoveConfirmSampleId(null);
+    } else {
+      setRemoveConfirmSampleId(sampleId);
+      setTimeout(() => setRemoveConfirmSampleId(null), 3000);
+    }
+  };
+
   if (selectedBatch && selectedBatchId) {
     return (
       <section className="batch-review-detail">
@@ -204,6 +263,17 @@ export function BatchReviewWorkbench({
               <p>复核筛选</p>
               <h2>按条件筛选记录</h2>
             </div>
+            {!isBatchClosed && (
+              <div className="batch-sample-manage-actions">
+                <button
+                  type="button"
+                  className="primary-action"
+                  onClick={handleOpenAddSampleDialog}
+                >
+                  + 添加样本到批次
+                </button>
+              </div>
+            )}
           </div>
 
           <div className="batch-filter-bar">
@@ -251,11 +321,20 @@ export function BatchReviewWorkbench({
             </div>
           </div>
 
+          {isBatchClosed && (
+            <div className="batch-closed-notice">
+              <span className="batch-closed-icon">🔒</span>
+              <p>批次已截止，不可调整样本，您仍可查看复核结果。</p>
+            </div>
+          )}
+
           {batchSamples.length === 0 ? (
             <div className="batch-empty-state">
               <div className="batch-empty-icon">📋</div>
               <h3>该批次暂无样本</h3>
-              <p>学生提交观察记录后，将自动关联到此批次中。您也可以在教师工作台手动将样本加入批次。</p>
+              <p>学生提交观察记录后，将自动关联到此批次中。
+                {!isBatchClosed && "您也可以点击上方\"添加样本到批次\"按钮手动添加。"}
+              </p>
             </div>
           ) : filteredSamples.length === 0 ? (
             <div className="batch-empty-state">
@@ -315,35 +394,51 @@ export function BatchReviewWorkbench({
                               {mag.magnification} {mag.observedStructure}
                             </span>
                             <span className="batch-mag-actions">
-                              {mag.isQualified === undefined ? (
-                                <>
-                                  <button
-                                    type="button"
-                                    className="qualified-action small-btn"
-                                    onClick={() => onToggleQualified(sample.id, mag.id, true)}
-                                  >
-                                    ✓ 合格
-                                  </button>
+                              {isBatchClosed ? (
+                                mag.isQualified === true ? (
+                                  <span className="review-info">
+                                    ✓ 合格 {mag.reviewedBy ? `· ${mag.reviewedBy}` : ""}
+                                  </span>
+                                ) : mag.isQualified === false ? (
+                                  <span className="review-info fail-info">
+                                    ✗ 不合格 {mag.reviewedBy ? `· ${mag.reviewedBy}` : ""}
+                                  </span>
+                                ) : (
+                                  <span className="review-info pending-info">
+                                    待评阅
+                                  </span>
+                                )
+                              ) : (
+                                mag.isQualified === undefined ? (
+                                  <>
+                                    <button
+                                      type="button"
+                                      className="qualified-action small-btn"
+                                      onClick={() => onToggleQualified(sample.id, mag.id, true)}
+                                    >
+                                      ✓ 合格
+                                    </button>
+                                    <button
+                                      type="button"
+                                      className="unqualified-action small-btn"
+                                      onClick={() => onToggleQualified(sample.id, mag.id, false)}
+                                    >
+                                      ✗ 不合格
+                                    </button>
+                                  </>
+                                ) : mag.isQualified === true ? (
+                                  <span className="review-info">
+                                    ✓ 合格 {mag.reviewedBy ? `· ${mag.reviewedBy}` : ""}
+                                  </span>
+                                ) : (
                                   <button
                                     type="button"
                                     className="unqualified-action small-btn"
-                                    onClick={() => onToggleQualified(sample.id, mag.id, false)}
+                                    onClick={() => onToggleQualified(sample.id, mag.id, true)}
                                   >
-                                    ✗ 不合格
+                                    ✗ 不合格 · 重新评定
                                   </button>
-                                </>
-                              ) : mag.isQualified === true ? (
-                                <span className="review-info">
-                                  ✓ 合格 {mag.reviewedBy ? `· ${mag.reviewedBy}` : ""}
-                                </span>
-                              ) : (
-                                <button
-                                  type="button"
-                                  className="unqualified-action small-btn"
-                                  onClick={() => onToggleQualified(sample.id, mag.id, true)}
-                                >
-                                  ✗ 不合格 · 重新评定
-                                </button>
+                                )
                               )}
                             </span>
                           </div>
@@ -351,7 +446,7 @@ export function BatchReviewWorkbench({
                       </div>
                     </div>
                     <div className="batch-review-card-actions">
-                      {pendingCount > 0 && (
+                      {!isBatchClosed && pendingCount > 0 && (
                         <>
                           <button
                             type="button"
@@ -376,6 +471,15 @@ export function BatchReviewWorkbench({
                       >
                         查看详情
                       </button>
+                      {!isBatchClosed && (
+                        <button
+                          type="button"
+                          className={`danger-action small-btn ${removeConfirmSampleId === sample.id ? "confirm-delete" : ""}`}
+                          onClick={() => handleRemoveSample(sample.id)}
+                        >
+                          {removeConfirmSampleId === sample.id ? "确认移出?" : "移出批次"}
+                        </button>
+                      )}
                     </div>
                   </article>
                 );
@@ -383,6 +487,125 @@ export function BatchReviewWorkbench({
             </div>
           )}
         </section>
+
+        {showAddSampleDialog && selectedBatch && (
+          <div className="dialog-overlay" onClick={handleCloseAddSampleDialog}>
+            <div className="dialog-content batch-add-sample-dialog" onClick={e => e.stopPropagation()}>
+              <div className="dialog-header">
+                <div>
+                  <p className="eyebrow">批次管理</p>
+                  <h2>添加样本到批次</h2>
+                </div>
+                <button
+                  type="button"
+                  className="dialog-close-btn"
+                  onClick={handleCloseAddSampleDialog}
+                >
+                  ✕
+                </button>
+              </div>
+
+              <div className="batch-add-search-bar">
+                <div className="batch-filter-group">
+                  <label>
+                    <span>学生</span>
+                    <select
+                      value={searchStudentId}
+                      onChange={e => setSearchStudentId(e.target.value)}
+                    >
+                      <option value="all">全部学生</option>
+                      {students.map(st => (
+                        <option key={st.id} value={st.id}>{st.name}</option>
+                      ))}
+                    </select>
+                  </label>
+                </div>
+                <div className="batch-filter-group">
+                  <label>
+                    <span>样本类型</span>
+                    <select
+                      value={searchSampleType}
+                      onChange={e => setSearchSampleType(e.target.value)}
+                    >
+                      <option value="all">全部类型</option>
+                      {sampleTypes.map(t => (
+                        <option key={t} value={t}>{t}</option>
+                      ))}
+                    </select>
+                  </label>
+                </div>
+                <div className="batch-filter-group">
+                  <label>
+                    <span>样本名称</span>
+                    <input
+                      type="text"
+                      placeholder="输入样本名称关键词"
+                      value={searchSampleName}
+                      onChange={e => setSearchSampleName(e.target.value)}
+                    />
+                  </label>
+                </div>
+              </div>
+
+              <div className="batch-add-count-info">
+                共找到 <strong>{filteredAvailableSamples.length}</strong> 个可添加样本
+              </div>
+
+              <div className="batch-add-sample-list">
+                {filteredAvailableSamples.length === 0 ? (
+                  <div className="batch-empty-state small-empty">
+                    <div className="batch-empty-icon">🔍</div>
+                    <h3>没有可添加的样本</h3>
+                    <p>
+                      {availableSamples.length === 0
+                        ? "所有样本都已加入当前批次，或暂无可用样本。"
+                        : "当前搜索条件下没有找到匹配的样本，请调整搜索条件。"}
+                    </p>
+                  </div>
+                ) : (
+                  filteredAvailableSamples.map(sample => {
+                    const student = students.find(u => u.id === sample.studentId);
+                    return (
+                      <article key={sample.id} className="batch-add-sample-item">
+                        <div className="batch-add-sample-info">
+                          <h4>{sample.sampleName}</h4>
+                          <p>
+                            <span className="batch-student-tag small">
+                              {student?.name || sample.studentName}
+                            </span>
+                            <span className="batch-meta-sep">·</span>
+                            <span>{sample.sampleType}</span>
+                            <span className="batch-meta-sep">·</span>
+                            <span>{sample.stainingMethod}</span>
+                            <span className="batch-meta-sep">·</span>
+                            <span>{sample.magnifications.length} 条视野</span>
+                          </p>
+                        </div>
+                        <button
+                          type="button"
+                          className="primary-action small-btn"
+                          onClick={() => handleAddSample(sample.id)}
+                        >
+                          + 添加
+                        </button>
+                      </article>
+                    );
+                  })
+                )}
+              </div>
+
+              <div className="dialog-footer">
+                <button
+                  type="button"
+                  className="secondary-action"
+                  onClick={handleCloseAddSampleDialog}
+                >
+                  关闭
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
       </section>
     );
   }
