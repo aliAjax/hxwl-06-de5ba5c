@@ -111,20 +111,20 @@ export function StudentWorkbench({
         sum + sample.magnifications.filter(r => r.isQualified === true).length,
       0
     );
-    const pendingFields = mySamples.reduce(
+    const unqualifiedFields = mySamples.reduce(
       (sum, sample) =>
-        sum + sample.magnifications.filter(r => r.isQualified === undefined).length,
+        sum + sample.magnifications.filter(r => r.isQualified === false).length,
       0
     );
     return [
       String(uniqueSamples),
       String(totalFields),
       String(qualifiedFields),
-      String(pendingFields)
+      String(unqualifiedFields)
     ];
   }, [mySamples]);
 
-  const studentMetricsLabels = ["我的样本", "视野记录", "已合格", "待评阅"];
+  const studentMetricsLabels = ["我的样本", "视野记录", "已合格", "不合格"];
 
   return (
     <>
@@ -340,6 +340,7 @@ export function StudentWorkbench({
               })).filter(s => s.count > 0);
 
               const qualifiedCount = sample.magnifications.filter(r => r.isQualified === true).length;
+              const unqualifiedCount = sample.magnifications.filter(r => r.isQualified === false).length;
               const pendingCount = sample.magnifications.filter(r => r.isQualified === undefined).length;
               const sampleQuality = getSampleQualityStatus(sample);
 
@@ -361,6 +362,9 @@ export function StudentWorkbench({
                     <div className="record-status-chips">
                       {qualifiedCount > 0 && (
                         <span className="record-mag-chip pass-chip">合格 × {qualifiedCount}</span>
+                      )}
+                      {unqualifiedCount > 0 && (
+                        <span className="record-mag-chip fail-chip">不合格 × {unqualifiedCount}</span>
                       )}
                       {pendingCount > 0 && (
                         <span className="record-mag-chip pending-chip">待评阅 × {pendingCount}</span>

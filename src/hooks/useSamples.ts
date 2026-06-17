@@ -21,7 +21,7 @@ interface UseSamplesReturn {
   addMagnification: (sampleId: string, data: MagnificationFormData) => void;
   updateMagnification: (sampleId: string, magId: string, data: MagnificationFormData) => void;
   deleteMagnification: (sampleId: string, magId: string) => void;
-  toggleQualified: (sampleId: string, magId: string, qualified: boolean, reviewerName: string) => void;
+  toggleQualified: (sampleId: string, magId: string, qualified: boolean, reviewerName: string, unqualifiedReason?: string, revisionSuggestion?: string) => void;
   clearAllRecords: () => Promise<boolean>;
   bulkUpdateSampleType: (oldName: string, newName: string) => number;
   bulkUpdateStainingMethod: (oldName: string, newName: string) => number;
@@ -175,7 +175,12 @@ export const useSamples = (): UseSamplesReturn => {
                       ...record,
                       magnification: data.magnification.trim().toLowerCase(),
                       observedStructure: data.observedStructure.trim(),
-                      fieldDescription: data.fieldDescription.trim()
+                      fieldDescription: data.fieldDescription.trim(),
+                      isQualified: undefined,
+                      qualifiedAt: undefined,
+                      reviewedBy: undefined,
+                      unqualifiedReason: "",
+                      revisionSuggestion: ""
                     }
                   : record
               )
@@ -202,7 +207,7 @@ export const useSamples = (): UseSamplesReturn => {
   );
 
   const toggleQualified = useCallback(
-    (sampleId: string, magId: string, qualified: boolean, reviewerName: string) => {
+    (sampleId: string, magId: string, qualified: boolean, reviewerName: string, unqualifiedReason?: string, revisionSuggestion?: string) => {
       const newSamples = samples.map(sample =>
         sample.id === sampleId
           ? {
@@ -213,7 +218,9 @@ export const useSamples = (): UseSamplesReturn => {
                       ...record,
                       isQualified: qualified,
                       qualifiedAt: new Date().toISOString(),
-                      reviewedBy: reviewerName
+                      reviewedBy: reviewerName,
+                      unqualifiedReason: qualified ? "" : (unqualifiedReason ?? ""),
+                      revisionSuggestion: qualified ? "" : (revisionSuggestion ?? "")
                     }
                   : record
               )

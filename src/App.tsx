@@ -248,9 +248,15 @@ function App() {
     deleteMagnification(sampleId, magId);
   };
 
-  const handleToggleQualified = (sampleId: string, magId: string, qualified: boolean) => {
+  const handleToggleQualified = (
+    sampleId: string,
+    magId: string,
+    qualified: boolean,
+    unqualifiedReason?: string,
+    revisionSuggestion?: string
+  ) => {
     if (!currentUser) return;
-    toggleQualified(sampleId, magId, qualified, currentUser.name);
+    toggleQualified(sampleId, magId, qualified, currentUser.name, unqualifiedReason, revisionSuggestion);
   };
 
   const handleExportSummary = (filteredSamples?: Sample[]) => {

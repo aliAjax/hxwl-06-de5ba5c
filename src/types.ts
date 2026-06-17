@@ -29,6 +29,8 @@ export interface MagnificationRecord {
   isQualified?: boolean;
   qualifiedAt?: string;
   reviewedBy?: string;
+  unqualifiedReason?: string;
+  revisionSuggestion?: string;
 }
 
 export interface Sample {

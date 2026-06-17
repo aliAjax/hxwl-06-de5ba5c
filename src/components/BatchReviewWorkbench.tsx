@@ -16,7 +16,7 @@ interface BatchReviewWorkbenchProps {
   onCloseBatch: (batchId: string) => void;
   onReopenBatch: (batchId: string) => void;
   onDeleteBatch: (batchId: string) => void;
-  onToggleQualified: (sampleId: string, magId: string, qualified: boolean) => void;
+  onToggleQualified: (sampleId: string, magId: string, qualified: boolean, unqualifiedReason?: string, revisionSuggestion?: string) => void;
   onSampleClick: (sample: Sample) => void;
   onAddSampleToBatch: (batchId: string, sampleId: string) => void;
   onRemoveSampleFromBatch: (batchId: string, sampleId: string) => void;
@@ -50,6 +50,13 @@ export function BatchReviewWorkbench({
   const [searchSampleType, setSearchSampleType] = useState<string>("all");
   const [searchSampleName, setSearchSampleName] = useState("");
   const [removeConfirmSampleId, setRemoveConfirmSampleId] = useState<string | null>(null);
+  const [unqualifiedDialog, setUnqualifiedDialog] = useState<{
+    isOpen: boolean;
+    sampleId: string | null;
+    magId: string | null;
+    reason: string;
+    suggestion: string;
+  }>({ isOpen: false, sampleId: null, magId: null, reason: "", suggestion: "" });
 
   const students = users.filter(u => u.role === "student");
   const sampleTypes = [...new Set(samples.map(s => s.sampleType))];
@@ -205,6 +212,44 @@ export function BatchReviewWorkbench({
       setRemoveConfirmSampleId(sampleId);
       setTimeout(() => setRemoveConfirmSampleId(null), 3000);
     }
+  };
+
+  const handleOpenUnqualifiedDialog = (sampleId: string, magId: string) => {
+    setUnqualifiedDialog({ isOpen: true, sampleId, magId, reason: "", suggestion: "" });
+  };
+
+  const handleCloseUnqualifiedDialog = () => {
+    setUnqualifiedDialog({ isOpen: false, sampleId: null, magId: null, reason: "", suggestion: "" });
+  };
+
+  const handleConfirmUnqualified = () => {
+    if (!unqualifiedDialog.sampleId || !unqualifiedDialog.magId) return;
+    onToggleQualified(
+      unqualifiedDialog.sampleId,
+      unqualifiedDialog.magId,
+      false,
+      unqualifiedDialog.reason.trim(),
+      unqualifiedDialog.suggestion.trim()
+    );
+    handleCloseUnqualifiedDialog();
+  };
+
+  const handleToggleQualifiedDirect = (sampleId: string, magId: string, qualified: boolean) => {
+    if (qualified) {
+      onToggleQualified(sampleId, magId, true);
+    } else {
+      handleOpenUnqualifiedDialog(sampleId, magId);
+    }
+  };
+
+  const handleBatchRejectAll = (sampleId: string) => {
+    const sample = samples.find(s => s.id === sampleId);
+    if (!sample) return;
+    sample.magnifications.forEach(mag => {
+      if (mag.isQualified === undefined) {
+        onToggleQualified(sampleId, mag.id, false, "批量复核标记不合格", "请检查并完善观察记录内容");
+      }
+    });
   };
 
   if (selectedBatch && selectedBatchId) {
@@ -390,57 +435,75 @@ export function BatchReviewWorkbench({
                                 : "mag-pending"
                             }`}
                           >
-                            <span className="batch-mag-label">
-                              {mag.magnification} {mag.observedStructure}
-                            </span>
-                            <span className="batch-mag-actions">
-                              {isBatchClosed ? (
-                                mag.isQualified === true ? (
-                                  <span className="review-info">
-                                    ✓ 合格 {mag.reviewedBy ? `· ${mag.reviewedBy}` : ""}
-                                  </span>
-                                ) : mag.isQualified === false ? (
-                                  <span className="review-info fail-info">
-                                    ✗ 不合格 {mag.reviewedBy ? `· ${mag.reviewedBy}` : ""}
-                                  </span>
+                            <div className="batch-mag-row">
+                              <span className="batch-mag-label">
+                                {mag.magnification} {mag.observedStructure}
+                              </span>
+                              <span className="batch-mag-actions">
+                                {isBatchClosed ? (
+                                  mag.isQualified === true ? (
+                                    <span className="review-info">
+                                      ✓ 合格 {mag.reviewedBy ? `· ${mag.reviewedBy}` : ""}
+                                    </span>
+                                  ) : mag.isQualified === false ? (
+                                    <span className="review-info fail-info">
+                                      ✗ 不合格 {mag.reviewedBy ? `· ${mag.reviewedBy}` : ""}
+                                    </span>
+                                  ) : (
+                                    <span className="review-info pending-info">
+                                      待评阅
+                                    </span>
+                                  )
                                 ) : (
-                                  <span className="review-info pending-info">
-                                    待评阅
-                                  </span>
-                                )
-                              ) : (
-                                mag.isQualified === undefined ? (
-                                  <>
-                                    <button
-                                      type="button"
-                                      className="qualified-action small-btn"
-                                      onClick={() => onToggleQualified(sample.id, mag.id, true)}
-                                    >
-                                      ✓ 合格
-                                    </button>
+                                  mag.isQualified === undefined ? (
+                                    <>
+                                      <button
+                                        type="button"
+                                        className="qualified-action small-btn"
+                                        onClick={() => handleToggleQualifiedDirect(sample.id, mag.id, true)}
+                                      >
+                                        ✓ 合格
+                                      </button>
+                                      <button
+                                        type="button"
+                                        className="unqualified-action small-btn"
+                                        onClick={() => handleToggleQualifiedDirect(sample.id, mag.id, false)}
+                                      >
+                                        ✗ 不合格
+                                      </button>
+                                    </>
+                                  ) : mag.isQualified === true ? (
+                                    <span className="review-info">
+                                      ✓ 合格 {mag.reviewedBy ? `· ${mag.reviewedBy}` : ""}
+                                    </span>
+                                  ) : (
                                     <button
                                       type="button"
                                       className="unqualified-action small-btn"
-                                      onClick={() => onToggleQualified(sample.id, mag.id, false)}
+                                      onClick={() => handleToggleQualifiedDirect(sample.id, mag.id, true)}
                                     >
-                                      ✗ 不合格
+                                      ✗ 不合格 · 重新评定
                                     </button>
-                                  </>
-                                ) : mag.isQualified === true ? (
-                                  <span className="review-info">
-                                    ✓ 合格 {mag.reviewedBy ? `· ${mag.reviewedBy}` : ""}
-                                  </span>
-                                ) : (
-                                  <button
-                                    type="button"
-                                    className="unqualified-action small-btn"
-                                    onClick={() => onToggleQualified(sample.id, mag.id, true)}
-                                  >
-                                    ✗ 不合格 · 重新评定
-                                  </button>
-                                )
-                              )}
-                            </span>
+                                  )
+                                )}
+                              </span>
+                            </div>
+                            {mag.isQualified === false && (mag.unqualifiedReason || mag.revisionSuggestion) && (
+                              <div className="batch-mag-feedback">
+                                {mag.unqualifiedReason && (
+                                  <div className="feedback-item feedback-reason">
+                                    <span className="feedback-label">原因：</span>
+                                    <span className="feedback-text">{mag.unqualifiedReason}</span>
+                                  </div>
+                                )}
+                                {mag.revisionSuggestion && (
+                                  <div className="feedback-item feedback-suggestion">
+                                    <span className="feedback-label">建议：</span>
+                                    <span className="feedback-text">{mag.revisionSuggestion}</span>
+                                  </div>
+                                )}
+                              </div>
+                            )}
                           </div>
                         ))}
                       </div>
@@ -487,6 +550,54 @@ export function BatchReviewWorkbench({
             </div>
           )}
         </section>
+
+        {unqualifiedDialog.isOpen && (
+          <div className="confirm-dialog-overlay" onClick={handleCloseUnqualifiedDialog}>
+            <div className="confirm-dialog unqualified-dialog" onClick={(e) => e.stopPropagation()}>
+              <div className="confirm-dialog-header">
+                <span className="confirm-dialog-icon">✗</span>
+                <h3>标记不合格 — 填写复核意见</h3>
+              </div>
+              <div className="confirm-dialog-body">
+                <p>请填写不合格原因和修改建议，方便学生了解问题并进行修正。</p>
+                <div className="unqualified-form">
+                  <label className="unqualified-field">
+                    <span>
+                      不合格原因
+                      <em className="required-mark">*</em>
+                    </span>
+                    <textarea
+                      value={unqualifiedDialog.reason}
+                      onChange={(e) => setUnqualifiedDialog(prev => ({ ...prev, reason: e.target.value }))}
+                      placeholder="例如：观察结构描述不准确，视野描述过于简略等"
+                      rows={3}
+                    />
+                  </label>
+                  <label className="unqualified-field">
+                    <span>修改建议</span>
+                    <textarea
+                      value={unqualifiedDialog.suggestion}
+                      onChange={(e) => setUnqualifiedDialog(prev => ({ ...prev, suggestion: e.target.value }))}
+                      placeholder="例如：建议补充细胞壁、细胞核等关键结构的详细描述"
+                      rows={3}
+                    />
+                  </label>
+                </div>
+              </div>
+              <div className="confirm-dialog-footer">
+                <button type="button" onClick={handleCloseUnqualifiedDialog}>取消</button>
+                <button
+                  type="button"
+                  className="primary-action"
+                  onClick={handleConfirmUnqualified}
+                  disabled={!unqualifiedDialog.reason.trim()}
+                >
+                  确认不合格
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
 
         {showAddSampleDialog && selectedBatch && (
           <div className="dialog-overlay" onClick={handleCloseAddSampleDialog}>

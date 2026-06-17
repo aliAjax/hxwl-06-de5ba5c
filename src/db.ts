@@ -26,7 +26,7 @@ interface MetadataEntry {
 }
 
 const DB_NAME = "microscope-observation-db";
-const DB_VERSION = 4;
+const DB_VERSION = 5;
 const STORE_SAMPLES = "samples";
 const STORE_METADATA = "metadata";
 const STORE_BATCHES = "batches";
@@ -225,6 +225,10 @@ export class ObservationDatabase {
         if (oldVersion < 4) {
           this.migrateFrom3To4(db);
         }
+        if (oldVersion < 5) {
+          const tx = (event.target as IDBOpenDBRequest).transaction;
+          this.migrateFrom4To5(db, tx);
+        }
       };
     });
 
@@ -267,6 +271,33 @@ export class ObservationDatabase {
       if (!store.indexNames.contains("createdAt")) {
         store.createIndex("createdAt", "createdAt", { unique: false });
       }
+    }
+  }
+
+  private migrateFrom4To5(db: IDBDatabase, transaction?: IDBTransaction | null): void {
+    if (db.objectStoreNames.contains(STORE_SAMPLES) && transaction) {
+      const store = transaction.objectStore(STORE_SAMPLES);
+      const request = store.getAll();
+      request.onsuccess = () => {
+        const samples = request.result as Sample[];
+        samples.forEach(sample => {
+          let changed = false;
+          sample.magnifications = sample.magnifications.map(rec => {
+            if (rec.unqualifiedReason === undefined || rec.revisionSuggestion === undefined) {
+              changed = true;
+              return {
+                unqualifiedReason: "",
+                revisionSuggestion: "",
+                ...rec
+              };
+            }
+            return rec;
+          });
+          if (changed) {
+            store.put(sample);
+          }
+        });
+      };
     }
   }
 

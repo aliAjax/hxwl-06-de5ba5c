@@ -116,6 +116,10 @@ export function TeacherWorkbench({
                       <em>{studentSamples.reduce((sum, s) => sum + s.magnifications.filter(r => r.isQualified === true).length, 0)}</em>
                       <small>已合格</small>
                     </span>
+                    <span className="mini-stat fail">
+                      <em>{studentSamples.reduce((sum, s) => sum + s.magnifications.filter(r => r.isQualified === false).length, 0)}</em>
+                      <small>不合格</small>
+                    </span>
                     <span className="mini-stat pending">
                       <em>{studentSamples.reduce((sum, s) => sum + s.magnifications.filter(r => r.isQualified === undefined).length, 0)}</em>
                       <small>待评阅</small>

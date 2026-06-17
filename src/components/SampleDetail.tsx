@@ -23,7 +23,7 @@ interface SampleDetailProps {
   onAddMagnification: (sampleId: string, data: MagnificationFormData, forceSubmit?: boolean) => void;
   onUpdateMagnification: (sampleId: string, magId: string, data: MagnificationFormData, forceSubmit?: boolean) => void;
   onDeleteMagnification: (sampleId: string, magId: string) => void;
-  onToggleQualified?: (sampleId: string, magId: string, qualified: boolean) => void;
+  onToggleQualified?: (sampleId: string, magId: string, qualified: boolean, unqualifiedReason?: string, revisionSuggestion?: string) => void;
   currentRole: Role;
   currentUserName: string;
 }
@@ -46,6 +46,12 @@ export function SampleDetail({
     isOpen: boolean;
     mode: "add" | "edit" | null;
   }>({ isOpen: false, mode: null });
+  const [unqualifiedDialog, setUnqualifiedDialog] = useState<{
+    isOpen: boolean;
+    magId: string | null;
+    reason: string;
+    suggestion: string;
+  }>({ isOpen: false, magId: null, reason: "", suggestion: "" });
 
   const magQualityResult = useMemo(() => {
     return runQualityCheck(
@@ -174,6 +180,35 @@ export function SampleDetail({
 
   const handleCancelMagConfirm = () => {
     setMagConfirmDialog({ isOpen: false, mode: null });
+  };
+
+  const handleOpenUnqualifiedDialog = (magId: string) => {
+    setUnqualifiedDialog({ isOpen: true, magId, reason: "", suggestion: "" });
+  };
+
+  const handleCloseUnqualifiedDialog = () => {
+    setUnqualifiedDialog({ isOpen: false, magId: null, reason: "", suggestion: "" });
+  };
+
+  const handleConfirmUnqualified = () => {
+    if (!unqualifiedDialog.magId || !onToggleQualified) return;
+    onToggleQualified(
+      sample.id,
+      unqualifiedDialog.magId,
+      false,
+      unqualifiedDialog.reason.trim(),
+      unqualifiedDialog.suggestion.trim()
+    );
+    handleCloseUnqualifiedDialog();
+  };
+
+  const handleToggleQualifiedDirect = (magId: string, qualified: boolean) => {
+    if (!onToggleQualified) return;
+    if (qualified) {
+      onToggleQualified(sample.id, magId, true);
+    } else {
+      handleOpenUnqualifiedDialog(magId);
+    }
   };
 
   const handleEditMagnification = (record: MagnificationRecord) => {
@@ -442,6 +477,54 @@ export function SampleDetail({
           <QualityCheckPanel result={magQualityResult} title="检查结果详情" />
         </ConfirmDialog>
 
+        {unqualifiedDialog.isOpen && (
+          <div className="confirm-dialog-overlay" onClick={handleCloseUnqualifiedDialog}>
+            <div className="confirm-dialog unqualified-dialog" onClick={(e) => e.stopPropagation()}>
+              <div className="confirm-dialog-header">
+                <span className="confirm-dialog-icon">✗</span>
+                <h3>标记不合格 — 填写复核意见</h3>
+              </div>
+              <div className="confirm-dialog-body">
+                <p>请填写不合格原因和修改建议，方便学生了解问题并进行修正。</p>
+                <div className="unqualified-form">
+                  <label className="unqualified-field">
+                    <span>
+                      不合格原因
+                      <em className="required-mark">*</em>
+                    </span>
+                    <textarea
+                      value={unqualifiedDialog.reason}
+                      onChange={(e) => setUnqualifiedDialog(prev => ({ ...prev, reason: e.target.value }))}
+                      placeholder="例如：观察结构描述不准确，视野描述过于简略等"
+                      rows={3}
+                    />
+                  </label>
+                  <label className="unqualified-field">
+                    <span>修改建议</span>
+                    <textarea
+                      value={unqualifiedDialog.suggestion}
+                      onChange={(e) => setUnqualifiedDialog(prev => ({ ...prev, suggestion: e.target.value }))}
+                      placeholder="例如：建议补充细胞壁、细胞核等关键结构的详细描述"
+                      rows={3}
+                    />
+                  </label>
+                </div>
+              </div>
+              <div className="confirm-dialog-footer">
+                <button type="button" onClick={handleCloseUnqualifiedDialog}>取消</button>
+                <button
+                  type="button"
+                  className="primary-action"
+                  onClick={handleConfirmUnqualified}
+                  disabled={!unqualifiedDialog.reason.trim()}
+                >
+                  确认不合格
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
         <div className="magnification-groups">
           {groups.length === 0 ? (
             <p className="empty-description">
@@ -488,7 +571,7 @@ export function SampleDetail({
                                   record.isQualified === true ? "active-pass" : ""
                                 }`}
                                 onClick={() =>
-                                  onToggleQualified(sample.id, record.id, true)
+                                  handleToggleQualifiedDirect(record.id, true)
                                 }
                               >
                                 标记合格
@@ -499,7 +582,7 @@ export function SampleDetail({
                                   record.isQualified === false ? "active-fail" : ""
                                 }`}
                                 onClick={() =>
-                                  onToggleQualified(sample.id, record.id, false)
+                                  handleToggleQualifiedDirect(record.id, false)
                                 }
                               >
                                 标记不合格
@@ -525,6 +608,22 @@ export function SampleDetail({
                       <p className="magnification-description">
                         {record.fieldDescription || "暂无视野描述"}
                       </p>
+                      {record.isQualified === false && (record.unqualifiedReason || record.revisionSuggestion) && (
+                        <div className="review-feedback">
+                          {record.unqualifiedReason && (
+                            <div className="feedback-item feedback-reason">
+                              <span className="feedback-label">不合格原因：</span>
+                              <span className="feedback-text">{record.unqualifiedReason}</span>
+                            </div>
+                          )}
+                          {record.revisionSuggestion && (
+                            <div className="feedback-item feedback-suggestion">
+                              <span className="feedback-label">修改建议：</span>
+                              <span className="feedback-text">{record.revisionSuggestion}</span>
+                            </div>
+                          )}
+                        </div>
+                      )}
                       <div className="magnification-meta">
                         <span className="magnification-time">
                           记录时间：{formatDate(record.createdAt)}
