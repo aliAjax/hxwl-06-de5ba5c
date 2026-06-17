@@ -24,6 +24,7 @@ import {
   generateReportPlainText
 } from "./utils/reportGenerator";
 import { useSamples } from "./hooks/useSamples";
+import { useBatches } from "./hooks/useBatches";
 import { useAdminConfig } from "./hooks/useAdminConfig";
 import { defaultUsers } from "./db";
 import { MetricCard } from "./components/MetricCard";
@@ -35,6 +36,7 @@ import { SampleDetail } from "./components/SampleDetail";
 import { StudentWorkbench } from "./components/StudentWorkbench";
 import { TeacherWorkbench } from "./components/TeacherWorkbench";
 import { AdminWorkbench } from "./components/AdminWorkbench";
+import { BatchReviewWorkbench } from "./components/BatchReviewWorkbench";
 
 function App() {
   const [formData, setFormData] = useState<SampleFormData>(INITIAL_SAMPLE_FORM_DATA);
@@ -72,6 +74,17 @@ function App() {
     toggleQualified,
     clearAllRecords
   } = useSamples();
+
+  const {
+    batches,
+    createBatch,
+    closeBatch,
+    reopenBatch,
+    deleteBatch,
+    addSampleToBatch
+  } = useBatches(dbStatus, samples);
+
+  const [teacherSubView, setTeacherSubView] = useState<"overview" | "batch">("overview");
 
   const selectedSample = useMemo(
     () => samples.find(sample => sample.id === selectedSampleId) ?? null,
@@ -151,6 +164,13 @@ function App() {
   const doSubmitSample = () => {
     if (!currentUser) return;
     addSample(formData, currentUser.id, currentUser.name);
+    const openBatch = batches.find(b => b.status === "open");
+    if (openBatch) {
+      setTimeout(() => {
+        const newSampleId = `sample-${Date.now()}`;
+        addSampleToBatch(openBatch.id, newSampleId);
+      }, 0);
+    }
     setFormData(INITIAL_SAMPLE_FORM_DATA);
     setErrors({});
     setSelectedTemplate(null);
@@ -307,14 +327,48 @@ function App() {
           )}
 
           {currentUser && currentRole === "teacher" && (
-            <TeacherWorkbench
-              currentUser={currentUser}
-              samples={samples}
-              users={users}
-              onSampleClick={handleSampleClick}
-              onToggleQualified={handleToggleQualified}
-              onExportSummary={handleExportSummary}
-            />
+            <>
+              <div className="teacher-tabs">
+                <button
+                  type="button"
+                  className={`teacher-tab ${teacherSubView === "overview" ? "active" : ""}`}
+                  onClick={() => setTeacherSubView("overview")}
+                >
+                  👨‍🏫 学生管理
+                </button>
+                <button
+                  type="button"
+                  className={`teacher-tab ${teacherSubView === "batch" ? "active" : ""}`}
+                  onClick={() => setTeacherSubView("batch")}
+                >
+                  🧪 批量复核
+                </button>
+              </div>
+
+              {teacherSubView === "overview" ? (
+                <TeacherWorkbench
+                  currentUser={currentUser}
+                  samples={samples}
+                  users={users}
+                  onSampleClick={handleSampleClick}
+                  onToggleQualified={handleToggleQualified}
+                  onExportSummary={handleExportSummary}
+                />
+              ) : (
+                <BatchReviewWorkbench
+                  currentUser={currentUser}
+                  samples={samples}
+                  users={users}
+                  batches={batches}
+                  onCreateBatch={createBatch}
+                  onCloseBatch={closeBatch}
+                  onReopenBatch={reopenBatch}
+                  onDeleteBatch={deleteBatch}
+                  onToggleQualified={handleToggleQualified}
+                  onSampleClick={handleSampleClick}
+                />
+              )}
+            </>
           )}
 
           {currentUser && currentRole === "admin" && (

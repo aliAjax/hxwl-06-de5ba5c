@@ -4,10 +4,11 @@ import type {
   MagnificationRecord,
   Sample,
   SampleCategory,
-  StainingMethod
+  StainingMethod,
+  ObservationBatch
 } from "./types";
 
-export type { Role, User, MagnificationRecord, Sample, SampleCategory, StainingMethod };
+export type { Role, User, MagnificationRecord, Sample, SampleCategory, StainingMethod, ObservationBatch };
 
 interface LegacyRecord {
   sampleName: string;
@@ -25,9 +26,10 @@ interface MetadataEntry {
 }
 
 const DB_NAME = "microscope-observation-db";
-const DB_VERSION = 3;
+const DB_VERSION = 4;
 const STORE_SAMPLES = "samples";
 const STORE_METADATA = "metadata";
+const STORE_BATCHES = "batches";
 
 export const defaultUsers: User[] = [
   { id: "student-1", name: "张三", role: "student" },
@@ -135,6 +137,22 @@ export const getInitialSamples = (): Sample[] => {
   return migrateLegacyRecordsToSamples(initialLegacyRecords);
 };
 
+export const getInitialBatches = (sampleIds: string[]): ObservationBatch[] => {
+  if (sampleIds.length === 0) return [];
+  return [
+    {
+      id: "batch-init-1",
+      name: "示例批次 · 历史观察记录",
+      description: "系统自动生成的示例批次，包含所有历史观察记录数据",
+      createdAt: new Date(Date.now() - 3 * 86400000).toISOString(),
+      status: "open",
+      createdBy: "teacher-1",
+      createdByName: "李老师",
+      sampleIds
+    }
+  ];
+};
+
 export const isIndexedDBSupported = (): boolean => {
   return typeof window !== "undefined" && "indexedDB" in window;
 };
@@ -204,6 +222,9 @@ export class ObservationDatabase {
           const tx = (event.target as IDBOpenDBRequest).transaction;
           this.migrateFrom2To3(db, tx);
         }
+        if (oldVersion < 4) {
+          this.migrateFrom3To4(db);
+        }
       };
     });
 
@@ -234,6 +255,18 @@ export class ObservationDatabase {
       const store = transaction.objectStore(STORE_SAMPLES);
       this.ensureSampleIndexes(store);
       this.normalizeSavedSamples(store);
+    }
+  }
+
+  private migrateFrom3To4(db: IDBDatabase): void {
+    if (!db.objectStoreNames.contains(STORE_BATCHES)) {
+      const store = db.createObjectStore(STORE_BATCHES, { keyPath: "id" });
+      if (!store.indexNames.contains("status")) {
+        store.createIndex("status", "status", { unique: false });
+      }
+      if (!store.indexNames.contains("createdAt")) {
+        store.createIndex("createdAt", "createdAt", { unique: false });
+      }
     }
   }
 
@@ -425,6 +458,101 @@ export class ObservationDatabase {
 
       request.onerror = () => {
         reject(new Error("统计数据失败：" + (request.error?.message || "未知错误")));
+      };
+    });
+  }
+
+  async getAllBatches(): Promise<ObservationBatch[]> {
+    this.ensureInitialized();
+
+    return new Promise((resolve, reject) => {
+      const transaction = this.db!.transaction(STORE_BATCHES, "readonly");
+      const store = transaction.objectStore(STORE_BATCHES);
+      const request = store.getAll();
+
+      request.onsuccess = () => {
+        const batches = request.result as ObservationBatch[];
+        batches.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+        resolve(batches);
+      };
+
+      request.onerror = () => {
+        reject(new Error("读取批次数据失败：" + (request.error?.message || "未知错误")));
+      };
+    });
+  }
+
+  async saveBatch(batch: ObservationBatch): Promise<void> {
+    this.ensureInitialized();
+
+    return new Promise((resolve, reject) => {
+      const transaction = this.db!.transaction(STORE_BATCHES, "readwrite");
+      const store = transaction.objectStore(STORE_BATCHES);
+      const request = store.put(batch);
+
+      request.onsuccess = () => {
+        resolve();
+      };
+
+      request.onerror = () => {
+        reject(new Error("保存批次数据失败：" + (request.error?.message || "未知错误")));
+      };
+    });
+  }
+
+  async saveBatches(batches: ObservationBatch[]): Promise<void> {
+    this.ensureInitialized();
+
+    return new Promise((resolve, reject) => {
+      const transaction = this.db!.transaction(STORE_BATCHES, "readwrite");
+      const store = transaction.objectStore(STORE_BATCHES);
+
+      batches.forEach(batch => {
+        store.put(batch);
+      });
+
+      transaction.oncomplete = () => {
+        resolve();
+      };
+
+      transaction.onerror = () => {
+        reject(new Error("批量保存批次数据失败：" + (transaction.error?.message || "未知错误")));
+      };
+    });
+  }
+
+  async deleteBatch(batchId: string): Promise<void> {
+    this.ensureInitialized();
+
+    return new Promise((resolve, reject) => {
+      const transaction = this.db!.transaction(STORE_BATCHES, "readwrite");
+      const store = transaction.objectStore(STORE_BATCHES);
+      const request = store.delete(batchId);
+
+      request.onsuccess = () => {
+        resolve();
+      };
+
+      request.onerror = () => {
+        reject(new Error("删除批次数据失败：" + (request.error?.message || "未知错误")));
+      };
+    });
+  }
+
+  async clearAllBatches(): Promise<void> {
+    this.ensureInitialized();
+
+    return new Promise((resolve, reject) => {
+      const transaction = this.db!.transaction(STORE_BATCHES, "readwrite");
+      const store = transaction.objectStore(STORE_BATCHES);
+      const request = store.clear();
+
+      request.onsuccess = () => {
+        resolve();
+      };
+
+      request.onerror = () => {
+        reject(new Error("清空批次数据失败：" + (request.error?.message || "未知错误")));
       };
     });
   }

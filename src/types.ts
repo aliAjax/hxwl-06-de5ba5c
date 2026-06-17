@@ -145,3 +145,26 @@ export interface ReportData {
 }
 
 export type DbStatus = "init" | "ready" | "error" | "unsupported";
+
+export type BatchStatus = "open" | "closed";
+
+export type ReviewFilterStatus = "all" | "pending" | "pass" | "fail";
+
+export interface ObservationBatch {
+  id: string;
+  name: string;
+  description: string;
+  createdAt: string;
+  closedAt?: string;
+  status: BatchStatus;
+  createdBy: string;
+  createdByName: string;
+  sampleIds: string[];
+}
+
+export interface BatchReviewFilter {
+  batchId: string;
+  sampleType: string;
+  studentId: string;
+  qualityStatus: ReviewFilterStatus;
+}
