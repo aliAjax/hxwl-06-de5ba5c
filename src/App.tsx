@@ -32,6 +32,7 @@ import {
   canManageBatches,
   canManageConfig,
   canImportExport,
+  canExportReport,
   getPermissionDeniedMessage
 } from "./utils/permissions";
 import { useSamples } from "./hooks/useSamples";
@@ -348,6 +349,10 @@ function App() {
   };
 
   const handleExportSummary = (filteredSamples?: Sample[]) => {
+    if (!canExportReport(currentRole)) {
+      alert(getPermissionDeniedMessage("导出报告"));
+      return;
+    }
     const targetSamples = filteredSamples ?? samples;
     if (targetSamples.length === 0) {
       alert("暂无任何样本数据，无法生成报告。请先添加观察记录。");
@@ -365,6 +370,10 @@ function App() {
   };
 
   const handleDownloadReport = () => {
+    if (!canExportReport(currentRole)) {
+      alert(getPermissionDeniedMessage("下载报告"));
+      return;
+    }
     if (!reportData || reportData.totalSamples === 0) {
       alert("暂无任何样本数据，无法下载报告。请先添加观察记录。");
       return;
@@ -390,6 +399,142 @@ function App() {
       studentName
     }));
     setErrors({});
+  };
+
+  const handleCreateBatch = (name: string, description: string, userId: string, userName: string) => {
+    if (!canManageBatches(currentRole)) {
+      alert(getPermissionDeniedMessage("创建批次"));
+      return;
+    }
+    createBatch(name, description, userId, userName);
+  };
+
+  const handleCloseBatch = (batchId: string) => {
+    if (!canManageBatches(currentRole)) {
+      alert(getPermissionDeniedMessage("截止批次"));
+      return;
+    }
+    closeBatch(batchId);
+  };
+
+  const handleReopenBatch = (batchId: string) => {
+    if (!canManageBatches(currentRole)) {
+      alert(getPermissionDeniedMessage("重新开启批次"));
+      return;
+    }
+    reopenBatch(batchId);
+  };
+
+  const handleDeleteBatch = (batchId: string) => {
+    if (!canManageBatches(currentRole)) {
+      alert(getPermissionDeniedMessage("删除批次"));
+      return;
+    }
+    deleteBatch(batchId);
+  };
+
+  const handleAddSampleToBatch = (batchId: string, sampleId: string) => {
+    if (!canManageBatches(currentRole)) {
+      alert(getPermissionDeniedMessage("添加样本到批次"));
+      return;
+    }
+    addSampleToBatch(batchId, sampleId);
+  };
+
+  const handleRemoveSampleFromBatch = (batchId: string, sampleId: string) => {
+    if (!canManageBatches(currentRole)) {
+      alert(getPermissionDeniedMessage("从批次移出样本"));
+      return;
+    }
+    removeSampleFromBatch(batchId, sampleId);
+  };
+
+  const handleAddCategory = (name: string): boolean => {
+    if (!canManageConfig(currentRole)) {
+      alert(getPermissionDeniedMessage("添加分类"));
+      return false;
+    }
+    return addCategory(name) !== null;
+  };
+
+  const handleUpdateCategory = (id: string, name: string): boolean => {
+    if (!canManageConfig(currentRole)) {
+      alert(getPermissionDeniedMessage("更新分类"));
+      return false;
+    }
+    return updateCategory(id, name);
+  };
+
+  const handleDeleteCategory = (id: string) => {
+    if (!canManageConfig(currentRole)) {
+      alert(getPermissionDeniedMessage("删除分类"));
+      return;
+    }
+    deleteCategory(id);
+  };
+
+  const handleAddStainingMethod = (name: string): boolean => {
+    if (!canManageConfig(currentRole)) {
+      alert(getPermissionDeniedMessage("添加染色方式"));
+      return false;
+    }
+    return addStainingMethod(name) !== null;
+  };
+
+  const handleUpdateStainingMethod = (id: string, name: string): boolean => {
+    if (!canManageConfig(currentRole)) {
+      alert(getPermissionDeniedMessage("更新染色方式"));
+      return false;
+    }
+    return updateStainingMethod(id, name);
+  };
+
+  const handleDeleteStainingMethod = (id: string) => {
+    if (!canManageConfig(currentRole)) {
+      alert(getPermissionDeniedMessage("删除染色方式"));
+      return;
+    }
+    deleteStainingMethod(id);
+  };
+
+  const handleAddTemplate = (t: Omit<ObservationTemplate, "id">): boolean => {
+    if (!canManageConfig(currentRole)) {
+      alert(getPermissionDeniedMessage("添加模板"));
+      return false;
+    }
+    return addTemplate(t) !== null;
+  };
+
+  const handleUpdateTemplate = (id: string, t: Partial<Omit<ObservationTemplate, "id">>): boolean => {
+    if (!canManageConfig(currentRole)) {
+      alert(getPermissionDeniedMessage("更新模板"));
+      return false;
+    }
+    return updateTemplate(id, t);
+  };
+
+  const handleDeleteTemplate = (id: string) => {
+    if (!canManageConfig(currentRole)) {
+      alert(getPermissionDeniedMessage("删除模板"));
+      return;
+    }
+    deleteTemplate(id);
+  };
+
+  const handleBulkUpdateSampleType = (oldName: string, newName: string): number => {
+    if (!canManageConfig(currentRole)) {
+      alert(getPermissionDeniedMessage("批量更新样本类型"));
+      return 0;
+    }
+    return bulkUpdateSampleType(oldName, newName);
+  };
+
+  const handleBulkUpdateStainingMethod = (oldName: string, newName: string): number => {
+    if (!canManageConfig(currentRole)) {
+      alert(getPermissionDeniedMessage("批量更新染色方式"));
+      return 0;
+    }
+    return bulkUpdateStainingMethod(oldName, newName);
   };
 
   const handleDataImported = useCallback(async () => {
@@ -427,7 +572,7 @@ function App() {
           {currentUser && currentRole === "student" && (
             <StudentWorkbench
               currentUser={currentUser}
-              samples={samples}
+              samples={samples.filter(s => s.studentId === currentUser.id)}
               sampleCategories={sampleCategories}
               stainingMethods={stainingMethods}
               templates={templates}
@@ -464,6 +609,7 @@ function App() {
               {teacherSubView === "overview" ? (
                 <TeacherWorkbench
                   currentUser={currentUser}
+                  currentRole={currentRole}
                   samples={samples}
                   users={users}
                   onSampleClick={handleSampleClick}
@@ -477,14 +623,14 @@ function App() {
                   samples={samples}
                   users={users}
                   batches={batches}
-                  onCreateBatch={createBatch}
-                  onCloseBatch={closeBatch}
-                  onReopenBatch={reopenBatch}
-                  onDeleteBatch={deleteBatch}
+                  onCreateBatch={handleCreateBatch}
+                  onCloseBatch={handleCloseBatch}
+                  onReopenBatch={handleReopenBatch}
+                  onDeleteBatch={handleDeleteBatch}
                   onToggleQualified={handleToggleQualified}
                   onSampleClick={handleSampleClick}
-                  onAddSampleToBatch={addSampleToBatch}
-                  onRemoveSampleFromBatch={removeSampleFromBatch}
+                  onAddSampleToBatch={handleAddSampleToBatch}
+                  onRemoveSampleFromBatch={handleRemoveSampleFromBatch}
                 />
               )}
             </>
@@ -495,23 +641,24 @@ function App() {
               <DataImportExportPanel currentRole={currentRole} onDataImported={handleDataImported} />
               <AdminWorkbench
                 currentUser={currentUser}
+                currentRole={currentRole}
                 sampleCategories={sampleCategories}
                 stainingMethods={stainingMethods}
                 templates={templates}
-                onAddCategory={(name: string) => addCategory(name) !== null}
-                onUpdateCategory={updateCategory}
-                onDeleteCategory={deleteCategory}
-                onAddStainingMethod={(name: string) => addStainingMethod(name) !== null}
-                onUpdateStainingMethod={updateStainingMethod}
-                onDeleteStainingMethod={deleteStainingMethod}
-                onAddTemplate={(t) => addTemplate(t) !== null}
-                onUpdateTemplate={updateTemplate}
-                onDeleteTemplate={deleteTemplate}
+                onAddCategory={handleAddCategory}
+                onUpdateCategory={handleUpdateCategory}
+                onDeleteCategory={handleDeleteCategory}
+                onAddStainingMethod={handleAddStainingMethod}
+                onUpdateStainingMethod={handleUpdateStainingMethod}
+                onDeleteStainingMethod={handleDeleteStainingMethod}
+                onAddTemplate={handleAddTemplate}
+                onUpdateTemplate={handleUpdateTemplate}
+                onDeleteTemplate={handleDeleteTemplate}
                 isTemplateNameDuplicate={isTemplateNameDuplicate}
                 countSamplesByType={countSamplesByType}
                 countSamplesByStaining={countSamplesByStaining}
-                bulkUpdateSampleType={bulkUpdateSampleType}
-                bulkUpdateStainingMethod={bulkUpdateStainingMethod}
+                bulkUpdateSampleType={handleBulkUpdateSampleType}
+                bulkUpdateStainingMethod={handleBulkUpdateStainingMethod}
               />
             </>
           )}

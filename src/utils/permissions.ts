@@ -35,6 +35,10 @@ export function canImportExport(role: Role): boolean {
   return role === "admin";
 }
 
+export function canExportReport(role: Role): boolean {
+  return role === "teacher" || role === "admin";
+}
+
 export function canViewSampleDetail(role: Role, userId: string, sample: Sample): boolean {
   if (role === "student") return sample.studentId === userId;
   if (role === "teacher") return true;

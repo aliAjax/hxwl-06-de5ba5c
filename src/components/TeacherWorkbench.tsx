@@ -1,11 +1,13 @@
 import React, { useState, useMemo } from "react";
-import type { User, Sample } from "../types";
+import type { User, Sample, Role } from "../types";
+import { canReview, canExportReport } from "../utils/permissions";
 import { getSampleQualityOverview } from "../utils/qualityCheck";
 import { MetricCard } from "./MetricCard";
 import { QualityBadge } from "./QualityBadge";
 
 interface TeacherWorkbenchProps {
   currentUser: User;
+  currentRole: Role;
   samples: Sample[];
   users: User[];
   onSampleClick: (sample: Sample) => void;
@@ -15,11 +17,20 @@ interface TeacherWorkbenchProps {
 
 export function TeacherWorkbench({
   currentUser,
+  currentRole,
   samples,
   users,
   onSampleClick,
   onExportSummary
 }: TeacherWorkbenchProps) {
+  if (!canReview(currentRole)) {
+    return (
+      <div className="permission-notice">
+        <span className="permission-notice-icon">🔒</span>
+        <p>权限不足：仅教师可以访问此工作台</p>
+      </div>
+    );
+  }
   const [selectedStudentId, setSelectedStudentId] = useState<string>("all");
 
   const students = users.filter(u => u.role === "student");
@@ -74,13 +85,15 @@ export function TeacherWorkbench({
             <h2>查看学生记录</h2>
           </div>
           <div className="teacher-filters">
-            <button
-              type="button"
-              className="export-summary-btn"
-              onClick={() => onExportSummary(filteredSamples)}
-            >
-              📊 记录导出摘要
-            </button>
+            {canExportReport(currentRole) && (
+              <button
+                type="button"
+                className="export-summary-btn"
+                onClick={() => onExportSummary(filteredSamples)}
+              >
+                📊 记录导出摘要
+              </button>
+            )}
             <select
               value={selectedStudentId}
               onChange={(e) => setSelectedStudentId(e.target.value)}
