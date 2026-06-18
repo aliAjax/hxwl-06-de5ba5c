@@ -14,6 +14,7 @@ import {
 } from "../constants";
 import { runQualityCheck, getMagnificationCoverage, getSampleQualityOverview } from "../utils/qualityCheck";
 import { formatDate, groupMagnifications } from "../utils/format";
+import { canModifySample, canModifyMagnification, canReview } from "../utils/permissions";
 import { MetricCard } from "./MetricCard";
 import { QualityCheckPanel } from "./QualityCheckPanel";
 import { QualityBadge } from "./QualityBadge";
@@ -28,6 +29,7 @@ interface SampleDetailProps {
   onToggleQualified?: (sampleId: string, magId: string, qualified: boolean, unqualifiedReason?: string, revisionSuggestion?: string) => void;
   currentRole: Role;
   currentUserName: string;
+  currentUserId: string;
 }
 
 export function SampleDetail({
@@ -38,8 +40,13 @@ export function SampleDetail({
   onDeleteMagnification,
   onToggleQualified,
   currentRole,
-  currentUserName
+  currentUserName,
+  currentUserId
 }: SampleDetailProps) {
+  const isOwner = sample.studentId === currentUserId;
+  const canEdit = currentRole === "student" && isOwner;
+  const canReviewRecord = canReview(currentRole);
+  const isAdmin = currentRole === "admin";
   const [showForm, setShowForm] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [magFormData, setMagFormData] = useState<MagnificationFormData>(EMPTY_MAGNIFICATION_FORM);
@@ -241,6 +248,18 @@ export function SampleDetail({
 
   return (
     <section className="detail-view">
+      {!canEdit && !canReviewRecord && (
+        <div className="permission-notice">
+          <span className="permission-notice-icon">🔒</span>
+          <p>你正在以只读方式查看此样本详情</p>
+        </div>
+      )}
+      {currentRole === "student" && !isOwner && (
+        <div className="permission-notice">
+          <span className="permission-notice-icon">🚫</span>
+          <p>这是其他同学的样本，你无法编辑</p>
+        </div>
+      )}
       <div className="detail-header panel">
         <button className="back-button" onClick={onBack}>
           ← 返回列表
@@ -423,7 +442,7 @@ export function SampleDetail({
                         type="button"
                         className="coverage-chip chip-action"
                         onClick={() => {
-                          if (currentRole === "student") {
+                          if (canEdit) {
                             setEditingId(null);
                             setMagFormData({
                               ...EMPTY_MAGNIFICATION_FORM,
@@ -433,7 +452,7 @@ export function SampleDetail({
                             setShowForm(true);
                           }
                         }}
-                        disabled={currentRole !== "student"}
+                        disabled={!canEdit}
                       >
                         + 新增 {mag}
                       </button>
@@ -503,7 +522,7 @@ export function SampleDetail({
             <p>多倍率视野对比</p>
             <h2>倍率视野记录</h2>
           </div>
-          {currentRole === "student" && (
+          {canEdit && (
             <button type="button" className="primary-action" onClick={handleToggleForm}>
               {showForm ? "收起表单" : "+ 新增倍率记录"}
             </button>
@@ -671,7 +690,7 @@ export function SampleDetail({
                           )}
                         </div>
                         <div className="magnification-actions">
-                          {currentRole === "teacher" && onToggleQualified && (
+                          {canReviewRecord && onToggleQualified && (
                             <>
                               <button
                                 type="button"
@@ -697,15 +716,16 @@ export function SampleDetail({
                               </button>
                             </>
                           )}
-                          {currentRole === "student" && (
+                          {canEdit && (
                             <>
-                              <button type="button" onClick={() => handleEditMagnification(record)}>
+                              <button type="button" onClick={() => handleEditMagnification(record)} disabled={record.isQualified !== undefined}>
                                 编辑
                               </button>
                               <button
                                 type="button"
                                 className="danger-action"
                                 onClick={() => handleDeleteMagnification(record)}
+                                disabled={record.isQualified !== undefined}
                               >
                                 删除
                               </button>

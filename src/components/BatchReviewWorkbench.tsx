@@ -3,13 +3,16 @@ import type {
   User,
   Sample,
   ObservationBatch,
-  ReviewFilterStatus
+  ReviewFilterStatus,
+  Role
 } from "../types";
+import { canManageBatches } from "../utils/permissions";
 import { getSampleQualityOverview } from "../utils/qualityCheck";
 import { MetricCard } from "./MetricCard";
 import { QualityBadge } from "./QualityBadge";
 
 interface BatchReviewWorkbenchProps {
+  currentRole: Role;
   currentUser: User;
   samples: Sample[];
   users: User[];
@@ -25,6 +28,7 @@ interface BatchReviewWorkbenchProps {
 }
 
 export function BatchReviewWorkbench({
+  currentRole,
   currentUser,
   samples,
   users,
@@ -38,6 +42,14 @@ export function BatchReviewWorkbench({
   onAddSampleToBatch,
   onRemoveSampleFromBatch
 }: BatchReviewWorkbenchProps) {
+  if (!canManageBatches(currentRole)) {
+    return (
+      <div className="permission-notice">
+        <span className="permission-notice-icon">🔒</span>
+        <p>权限不足：仅教师可以管理批次</p>
+      </div>
+    );
+  }
   const [selectedBatchId, setSelectedBatchId] = useState<string | null>(null);
   const [filterSampleType, setFilterSampleType] = useState<string>("all");
   const [filterStudentId, setFilterStudentId] = useState<string>("all");

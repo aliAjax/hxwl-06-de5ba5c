@@ -5,14 +5,16 @@ import {
   previewImportData,
   executeImport
 } from "../utils/dataImportExport";
-import type { ImportPreviewResult, ImportOptions, ImportResult } from "../types";
+import type { ImportPreviewResult, ImportOptions, ImportResult, Role } from "../types";
+import { canImportExport } from "../utils/permissions";
 import { ImportPreviewDialog } from "./ImportPreviewDialog";
 
 interface DataImportExportPanelProps {
+  currentRole: Role;
   onDataImported: () => void;
 }
 
-export function DataImportExportPanel({ onDataImported }: DataImportExportPanelProps) {
+export function DataImportExportPanel({ currentRole, onDataImported }: DataImportExportPanelProps) {
   const [isExporting, setIsExporting] = useState(false);
   const [isImporting, setIsImporting] = useState(false);
   const [showPreview, setShowPreview] = useState(false);
@@ -20,6 +22,10 @@ export function DataImportExportPanel({ onDataImported }: DataImportExportPanelP
   const [importResult, setImportResult] = useState<ImportResult | null>(null);
   const [showResult, setShowResult] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  if (!canImportExport(currentRole)) {
+    return null;
+  }
 
   const handleExport = async () => {
     if (isExporting) return;

@@ -920,6 +920,47 @@ select {
   color: #64748b;
 }
 
+.logout-btn {
+  margin-left: auto;
+  padding: 6px 14px;
+  border: 1px solid #e2e8f0;
+  border-radius: 6px;
+  background: #ffffff;
+  color: #64748b;
+  font-size: 12px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  white-space: nowrap;
+}
+
+.logout-btn:hover {
+  background: #fef2f2;
+  color: #dc2626;
+  border-color: #fecaca;
+}
+
+.permission-notice {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 14px 20px;
+  background: linear-gradient(135deg, #fef3c7 0%, #fffbeb 100%);
+  border: 1px solid #fbbf24;
+  border-radius: 10px;
+  margin-bottom: 16px;
+  font-size: 14px;
+  color: #92400e;
+}
+
+.permission-notice-icon {
+  font-size: 20px;
+  flex-shrink: 0;
+}
+
+.permission-notice p {
+  margin: 0;
+}
+
 .student-hero > div:first-child {
   border-left-color: var(--primary);
 }

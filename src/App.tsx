@@ -24,10 +24,21 @@ import {
   generateReportPlainText,
   downloadTextFile
 } from "./utils/reportGenerator";
+import {
+  canSubmitSample,
+  canModifySample,
+  canModifyMagnification,
+  canReview,
+  canManageBatches,
+  canManageConfig,
+  canImportExport,
+  getPermissionDeniedMessage
+} from "./utils/permissions";
 import { useSamples } from "./hooks/useSamples";
 import { useBatches } from "./hooks/useBatches";
 import { useAdminConfig } from "./hooks/useAdminConfig";
 import { useObservationTemplates } from "./hooks/useObservationTemplates";
+import { useSession } from "./hooks/useSession";
 import { defaultUsers } from "./db";
 import { MetricCard } from "./components/MetricCard";
 import { QualityCheckPanel } from "./components/QualityCheckPanel";
@@ -48,8 +59,13 @@ function App() {
   const [selectedSampleId, setSelectedSampleId] = useState<string | null>(null);
   const [selectedTemplate, setSelectedTemplate] = useState<string | null>(null);
 
-  const [currentRole, setCurrentRole] = useState<Role>("student");
-  const [currentUser, setCurrentUser] = useState<User | null>(defaultUsers[0]);
+  const {
+    currentRole,
+    currentUser,
+    setCurrentRole: setCurrentRoleBase,
+    setCurrentUser: setCurrentUserBase,
+    logout
+  } = useSession();
   const [users] = useState<User[]>(defaultUsers);
   const [submitConfirmDialog, setSubmitConfirmDialog] = useState(false);
   const [reportDialogOpen, setReportDialogOpen] = useState(false);
@@ -107,6 +123,30 @@ function App() {
   } = useBatches(dbStatus, samples);
 
   const [teacherSubView, setTeacherSubView] = useState<"overview" | "batch">("overview");
+
+  const handleRoleChange = useCallback((role: Role) => {
+    setCurrentRoleBase(role);
+    setCurrentView("list");
+    setSelectedSampleId(null);
+    setFormData(INITIAL_SAMPLE_FORM_DATA);
+    setErrors({});
+    setSelectedTemplate(null);
+    setTeacherSubView("overview");
+  }, [setCurrentRoleBase]);
+
+  const handleUserChange = useCallback((user: User) => {
+    setCurrentUserBase(user);
+    setCurrentView("list");
+    setSelectedSampleId(null);
+    setFormData(prev => ({
+      ...prev,
+      studentId: user.id,
+      studentName: user.name
+    }));
+    setErrors({});
+    setSelectedTemplate(null);
+    setTeacherSubView("overview");
+  }, [setCurrentUserBase]);
 
   const selectedSample = useMemo(
     () => samples.find(sample => sample.id === selectedSampleId) ?? null,
@@ -185,6 +225,10 @@ function App() {
 
   const doSubmitSample = () => {
     if (!currentUser) return;
+    if (!canSubmitSample(currentRole)) {
+      alert(getPermissionDeniedMessage("提交样本"));
+      return;
+    }
     const sampleId = addSample(formData, currentUser.id, currentUser.name);
     const openBatch = batches.find(b => b.status === "open");
     if (openBatch) {
@@ -237,6 +281,10 @@ function App() {
   };
 
   const handleSampleClick = (sample: Sample) => {
+    if (currentRole === "student" && sample.studentId !== currentUser?.id) {
+      alert(getPermissionDeniedMessage("查看其他学生的样本详情"));
+      return;
+    }
     setSelectedSampleId(sample.id);
     setCurrentView("detail");
   };
@@ -247,6 +295,12 @@ function App() {
   };
 
   const handleAddMagnification = (sampleId: string, data: MagnificationFormData) => {
+    if (!currentUser) return;
+    const sample = samples.find(s => s.id === sampleId);
+    if (!sample || !canModifySample(currentRole, currentUser.id, sample)) {
+      alert(getPermissionDeniedMessage("添加视野记录"));
+      return;
+    }
     addMagnification(sampleId, data);
   };
 
@@ -255,10 +309,26 @@ function App() {
     magId: string,
     data: MagnificationFormData
   ) => {
+    if (!currentUser) return;
+    const sample = samples.find(s => s.id === sampleId);
+    if (!sample) return;
+    const record = sample.magnifications.find(r => r.id === magId);
+    if (!record || !canModifyMagnification(currentRole, currentUser.id, sample, record)) {
+      alert(getPermissionDeniedMessage("编辑视野记录"));
+      return;
+    }
     updateMagnification(sampleId, magId, data);
   };
 
   const handleDeleteMagnification = (sampleId: string, magId: string) => {
+    if (!currentUser) return;
+    const sample = samples.find(s => s.id === sampleId);
+    if (!sample) return;
+    const record = sample.magnifications.find(r => r.id === magId);
+    if (!record || !canModifyMagnification(currentRole, currentUser.id, sample, record)) {
+      alert(getPermissionDeniedMessage("删除视野记录"));
+      return;
+    }
     deleteMagnification(sampleId, magId);
   };
 
@@ -270,6 +340,10 @@ function App() {
     revisionSuggestion?: string
   ) => {
     if (!currentUser) return;
+    if (!canReview(currentRole)) {
+      alert(getPermissionDeniedMessage("评阅"));
+      return;
+    }
     toggleQualified(sampleId, magId, qualified, currentUser.name, unqualifiedReason, revisionSuggestion);
   };
 
@@ -345,16 +419,9 @@ function App() {
             currentRole={currentRole}
             currentUser={currentUser}
             users={users}
-            onRoleChange={setCurrentRole}
-            onUserChange={(user) => {
-              setCurrentUser(user);
-              setCurrentRole(user.role);
-              setFormData(prev => ({
-                ...prev,
-                studentId: user.id,
-                studentName: user.name
-              }));
-            }}
+            onRoleChange={handleRoleChange}
+            onUserChange={handleUserChange}
+            onLogout={logout}
           />
 
           {currentUser && currentRole === "student" && (
@@ -405,6 +472,7 @@ function App() {
                 />
               ) : (
                 <BatchReviewWorkbench
+                  currentRole={currentRole}
                   currentUser={currentUser}
                   samples={samples}
                   users={users}
@@ -424,7 +492,7 @@ function App() {
 
           {currentUser && currentRole === "admin" && (
             <>
-              <DataImportExportPanel onDataImported={handleDataImported} />
+              <DataImportExportPanel currentRole={currentRole} onDataImported={handleDataImported} />
               <AdminWorkbench
                 currentUser={currentUser}
                 sampleCategories={sampleCategories}
@@ -473,6 +541,7 @@ function App() {
             onToggleQualified={handleToggleQualified}
             currentRole={currentRole}
             currentUserName={currentUser.name}
+            currentUserId={currentUser.id}
           />
         )
       )}

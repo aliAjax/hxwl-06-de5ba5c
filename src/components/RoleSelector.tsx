@@ -8,6 +8,7 @@ interface RoleSelectorProps {
   users: User[];
   onRoleChange: (role: Role) => void;
   onUserChange: (user: User) => void;
+  onLogout: () => void;
 }
 
 export function RoleSelector({
@@ -15,9 +16,19 @@ export function RoleSelector({
   currentUser,
   users,
   onRoleChange,
-  onUserChange
+  onUserChange,
+  onLogout
 }: RoleSelectorProps) {
   const filteredUsers = users.filter(u => u.role === currentRole);
+
+  const handleRoleClick = (role: Role) => {
+    const firstUser = users.find(u => u.role === role);
+    if (firstUser) {
+      onUserChange(firstUser);
+    } else {
+      onRoleChange(role);
+    }
+  };
 
   return (
     <section className="panel role-selector">
@@ -32,11 +43,7 @@ export function RoleSelector({
           <article
             key={config.role}
             className={`role-card ${currentRole === config.role ? "role-active" : ""}`}
-            onClick={() => {
-              onRoleChange(config.role);
-              const firstUser = users.find(u => u.role === config.role);
-              if (firstUser) onUserChange(firstUser);
-            }}
+            onClick={() => handleRoleClick(config.role)}
           >
             <div className="role-icon">{config.icon}</div>
             <h3>{config.label}</h3>
@@ -70,6 +77,13 @@ export function RoleSelector({
               <strong>{currentUser.name}</strong>
               <p>当前身份：{ROLE_CONFIGS.find(r => r.role === currentUser.role)?.label}</p>
             </div>
+            <button
+              type="button"
+              className="logout-btn"
+              onClick={onLogout}
+            >
+              退出登录
+            </button>
           </div>
         )}
       </div>
