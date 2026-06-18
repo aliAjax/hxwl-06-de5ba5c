@@ -21,6 +21,7 @@ interface UseObservationTemplatesReturn {
   deleteTemplate: (id: string) => void;
   resetTemplatesToDefaults: () => void;
   isTemplateNameDuplicate: (name: string, excludeId?: string) => boolean;
+  refreshTemplates: () => void;
 }
 
 export function useObservationTemplates(): UseObservationTemplatesReturn {
@@ -103,6 +104,21 @@ export function useObservationTemplates(): UseObservationTemplatesReturn {
     }
   }, []);
 
+  const refreshTemplates = useCallback((): void => {
+    if (typeof window === "undefined" || !window.localStorage) return;
+    try {
+      const rawValue = window.localStorage.getItem(STORAGE_KEY_TEMPLATES);
+      if (rawValue === null) {
+        setTemplates(defaultObservationTemplates);
+      } else {
+        const savedTemplates = safeParseJSON<ObservationTemplate[]>(rawValue, []);
+        setTemplates(savedTemplates);
+      }
+    } catch (e) {
+      console.warn("刷新模板配置失败：", e);
+    }
+  }, []);
+
   return {
     templates,
     isTemplatesLoaded,
@@ -110,6 +126,7 @@ export function useObservationTemplates(): UseObservationTemplatesReturn {
     updateTemplate,
     deleteTemplate,
     resetTemplatesToDefaults,
-    isTemplateNameDuplicate
+    isTemplateNameDuplicate,
+    refreshTemplates
   };
 }

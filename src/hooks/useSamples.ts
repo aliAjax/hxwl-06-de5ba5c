@@ -27,6 +27,7 @@ interface UseSamplesReturn {
   bulkUpdateStainingMethod: (oldName: string, newName: string) => number;
   countSamplesByType: (typeName: string) => number;
   countSamplesByStaining: (stainingName: string) => number;
+  refreshSamples: () => Promise<void>;
 }
 
 export const useSamples = (): UseSamplesReturn => {
@@ -290,6 +291,17 @@ export const useSamples = (): UseSamplesReturn => {
     return count;
   }, [samples, persistSamples]);
 
+  const refreshSamples = useCallback(async (): Promise<void> => {
+    if (dbStatus === "ready") {
+      try {
+        const savedSamples = await observationDb.getAllSamples();
+        setSamples(savedSamples);
+      } catch (error) {
+        console.error("刷新样本数据失败:", error);
+      }
+    }
+  }, [dbStatus]);
+
   return useMemo(
     () => ({
       samples,
@@ -305,7 +317,8 @@ export const useSamples = (): UseSamplesReturn => {
       bulkUpdateSampleType,
       bulkUpdateStainingMethod,
       countSamplesByType,
-      countSamplesByStaining
+      countSamplesByStaining,
+      refreshSamples
     }),
     [
       samples,
@@ -321,7 +334,8 @@ export const useSamples = (): UseSamplesReturn => {
       bulkUpdateSampleType,
       bulkUpdateStainingMethod,
       countSamplesByType,
-      countSamplesByStaining
+      countSamplesByStaining,
+      refreshSamples
     ]
   );
 };

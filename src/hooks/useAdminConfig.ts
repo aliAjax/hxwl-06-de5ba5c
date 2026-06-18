@@ -30,6 +30,7 @@ interface UseAdminConfigReturn {
   resetToDefaults: () => void;
   isCategoryNameDuplicate: (name: string, excludeId?: string) => boolean;
   isStainingNameDuplicate: (name: string, excludeId?: string) => boolean;
+  refreshConfig: () => void;
 }
 
 export function useAdminConfig(): UseAdminConfigReturn {
@@ -166,6 +167,30 @@ export function useAdminConfig(): UseAdminConfigReturn {
     }
   }, []);
 
+  const refreshConfig = useCallback((): void => {
+    if (typeof window === "undefined" || !window.localStorage) return;
+    try {
+      const rawCategories = window.localStorage.getItem(STORAGE_KEY_CATEGORIES);
+      const rawStaining = window.localStorage.getItem(STORAGE_KEY_STAINING);
+
+      if (rawCategories === null) {
+        setSampleCategories(defaultSampleCategories);
+      } else {
+        const savedCategories = safeParseJSON<SampleCategory[]>(rawCategories, []);
+        setSampleCategories(savedCategories);
+      }
+
+      if (rawStaining === null) {
+        setStainingMethods(defaultStainingMethods);
+      } else {
+        const savedStaining = safeParseJSON<StainingMethod[]>(rawStaining, []);
+        setStainingMethods(savedStaining);
+      }
+    } catch (e) {
+      console.warn("刷新配置失败：", e);
+    }
+  }, []);
+
   return {
     sampleCategories,
     stainingMethods,
@@ -178,6 +203,7 @@ export function useAdminConfig(): UseAdminConfigReturn {
     deleteStainingMethod,
     resetToDefaults,
     isCategoryNameDuplicate,
-    isStainingNameDuplicate
+    isStainingNameDuplicate,
+    refreshConfig
   };
 }

@@ -39,6 +39,7 @@ import { StudentWorkbench } from "./components/StudentWorkbench";
 import { TeacherWorkbench } from "./components/TeacherWorkbench";
 import { AdminWorkbench } from "./components/AdminWorkbench";
 import { BatchReviewWorkbench } from "./components/BatchReviewWorkbench";
+import { DataImportExportPanel } from "./components/DataImportExportPanel";
 
 function App() {
   const [formData, setFormData] = useState<SampleFormData>(INITIAL_SAMPLE_FORM_DATA);
@@ -63,7 +64,8 @@ function App() {
     deleteCategory,
     addStainingMethod,
     updateStainingMethod,
-    deleteStainingMethod
+    deleteStainingMethod,
+    refreshConfig
   } = useAdminConfig();
 
   const {
@@ -71,7 +73,8 @@ function App() {
     addTemplate,
     updateTemplate,
     deleteTemplate,
-    isTemplateNameDuplicate
+    isTemplateNameDuplicate,
+    refreshTemplates
   } = useObservationTemplates();
 
   const {
@@ -88,7 +91,8 @@ function App() {
     bulkUpdateSampleType,
     bulkUpdateStainingMethod,
     countSamplesByType,
-    countSamplesByStaining
+    countSamplesByStaining,
+    refreshSamples
   } = useSamples();
 
   const {
@@ -98,7 +102,8 @@ function App() {
     reopenBatch,
     deleteBatch,
     addSampleToBatch,
-    removeSampleFromBatch
+    removeSampleFromBatch,
+    refreshBatches
   } = useBatches(dbStatus, samples);
 
   const [teacherSubView, setTeacherSubView] = useState<"overview" | "batch">("overview");
@@ -313,6 +318,15 @@ function App() {
     setErrors({});
   };
 
+  const handleDataImported = useCallback(async () => {
+    await Promise.all([
+      refreshSamples(),
+      refreshBatches()
+    ]);
+    refreshConfig();
+    refreshTemplates();
+  }, [refreshSamples, refreshBatches, refreshConfig, refreshTemplates]);
+
   if (isLoading) {
     return (
       <main className="app-shell">
@@ -409,26 +423,29 @@ function App() {
           )}
 
           {currentUser && currentRole === "admin" && (
-            <AdminWorkbench
-              currentUser={currentUser}
-              sampleCategories={sampleCategories}
-              stainingMethods={stainingMethods}
-              templates={templates}
-              onAddCategory={(name: string) => addCategory(name) !== null}
-              onUpdateCategory={updateCategory}
-              onDeleteCategory={deleteCategory}
-              onAddStainingMethod={(name: string) => addStainingMethod(name) !== null}
-              onUpdateStainingMethod={updateStainingMethod}
-              onDeleteStainingMethod={deleteStainingMethod}
-              onAddTemplate={(t) => addTemplate(t) !== null}
-              onUpdateTemplate={updateTemplate}
-              onDeleteTemplate={deleteTemplate}
-              isTemplateNameDuplicate={isTemplateNameDuplicate}
-              countSamplesByType={countSamplesByType}
-              countSamplesByStaining={countSamplesByStaining}
-              bulkUpdateSampleType={bulkUpdateSampleType}
-              bulkUpdateStainingMethod={bulkUpdateStainingMethod}
-            />
+            <>
+              <DataImportExportPanel onDataImported={handleDataImported} />
+              <AdminWorkbench
+                currentUser={currentUser}
+                sampleCategories={sampleCategories}
+                stainingMethods={stainingMethods}
+                templates={templates}
+                onAddCategory={(name: string) => addCategory(name) !== null}
+                onUpdateCategory={updateCategory}
+                onDeleteCategory={deleteCategory}
+                onAddStainingMethod={(name: string) => addStainingMethod(name) !== null}
+                onUpdateStainingMethod={updateStainingMethod}
+                onDeleteStainingMethod={deleteStainingMethod}
+                onAddTemplate={(t) => addTemplate(t) !== null}
+                onUpdateTemplate={updateTemplate}
+                onDeleteTemplate={deleteTemplate}
+                isTemplateNameDuplicate={isTemplateNameDuplicate}
+                countSamplesByType={countSamplesByType}
+                countSamplesByStaining={countSamplesByStaining}
+                bulkUpdateSampleType={bulkUpdateSampleType}
+                bulkUpdateStainingMethod={bulkUpdateStainingMethod}
+              />
+            </>
           )}
 
           {dbStatus !== "ready" && (

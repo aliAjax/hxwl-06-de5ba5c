@@ -193,3 +193,77 @@ export interface SampleQualityOverview {
   overallStatus: QualityOverallStatus;
   hasIssues: boolean;
 }
+
+export const DATA_EXPORT_VERSION = "1.0.0";
+
+export type ImportItemStatus = "new" | "overwrite" | "conflict" | "invalid";
+
+export interface ExportData {
+  version: string;
+  exportedAt: string;
+  projectId: string;
+  data: {
+    samples: Sample[];
+    batches: ObservationBatch[];
+    sampleCategories: SampleCategory[];
+    stainingMethods: StainingMethod[];
+    templates: ObservationTemplate[];
+  };
+}
+
+export interface ImportItemSummary {
+  type: "sample" | "batch" | "sampleCategory" | "stainingMethod" | "template";
+  status: ImportItemStatus;
+  count: number;
+}
+
+export interface ImportItemDetail<T> {
+  item: T;
+  status: ImportItemStatus;
+  existingItem?: T;
+  conflictFields?: string[];
+  invalidReasons?: string[];
+}
+
+export interface ImportPreviewResult {
+  isValid: boolean;
+  version: string;
+  isOldVersion: boolean;
+  migrationNote?: string;
+  summary: ImportItemSummary[];
+  details: {
+    samples: ImportItemDetail<Sample>[];
+    batches: ImportItemDetail<ObservationBatch>[];
+    sampleCategories: ImportItemDetail<SampleCategory>[];
+    stainingMethods: ImportItemDetail<StainingMethod>[];
+    templates: ImportItemDetail<ObservationTemplate>[];
+  };
+}
+
+export interface ImportOptions {
+  resolveConflicts: "skip" | "overwrite" | "keepBoth";
+  importSamples: boolean;
+  importBatches: boolean;
+  importCategories: boolean;
+  importStainingMethods: boolean;
+  importTemplates: boolean;
+}
+
+export interface ImportResult {
+  success: boolean;
+  importedCounts: {
+    samples: number;
+    batches: number;
+    sampleCategories: number;
+    stainingMethods: number;
+    templates: number;
+  };
+  skippedCounts: {
+    samples: number;
+    batches: number;
+    sampleCategories: number;
+    stainingMethods: number;
+    templates: number;
+  };
+  errors: string[];
+}

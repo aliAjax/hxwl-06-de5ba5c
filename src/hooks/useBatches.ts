@@ -13,6 +13,7 @@ interface UseBatchesReturn {
   addSampleToBatch: (batchId: string, sampleId: string) => void;
   removeSampleFromBatch: (batchId: string, sampleId: string) => void;
   getBatchById: (batchId: string) => ObservationBatch | undefined;
+  refreshBatches: () => Promise<void>;
 }
 
 export const useBatches = (parentDbStatus: DbStatus, samples: Sample[]): UseBatchesReturn => {
@@ -177,6 +178,17 @@ export const useBatches = (parentDbStatus: DbStatus, samples: Sample[]): UseBatc
     [batches]
   );
 
+  const refreshBatches = useCallback(async (): Promise<void> => {
+    if (dbStatus === "ready") {
+      try {
+        const savedBatches = await observationDb.getAllBatches();
+        setBatches(savedBatches);
+      } catch (error) {
+        console.error("刷新批次数据失败:", error);
+      }
+    }
+  }, [dbStatus]);
+
   return useMemo(
     () => ({
       batches,
@@ -188,7 +200,8 @@ export const useBatches = (parentDbStatus: DbStatus, samples: Sample[]): UseBatc
       deleteBatch,
       addSampleToBatch,
       removeSampleFromBatch,
-      getBatchById
+      getBatchById,
+      refreshBatches
     }),
     [
       batches,
@@ -200,7 +213,8 @@ export const useBatches = (parentDbStatus: DbStatus, samples: Sample[]): UseBatc
       deleteBatch,
       addSampleToBatch,
       removeSampleFromBatch,
-      getBatchById
+      getBatchById,
+      refreshBatches
     ]
   );
 };
