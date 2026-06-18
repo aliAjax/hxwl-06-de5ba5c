@@ -30,7 +30,16 @@ function clearSession(): void {
   } catch {}
 }
 
-export function useSession() {
+interface UseSessionReturn {
+  currentRole: Role;
+  currentUser: User | null;
+  users: User[];
+  setCurrentRole: (role: Role) => void;
+  setCurrentUser: (user: User) => void;
+  logout: () => void;
+}
+
+export function useSession(): UseSessionReturn {
   const [currentRole, setCurrentRole] = useState<Role>(() => {
     const session = loadSession();
     return session?.role ?? "student";
@@ -39,10 +48,15 @@ export function useSession() {
   const [currentUser, setCurrentUser] = useState<User | null>(() => {
     const session = loadSession();
     if (session) {
-      return defaultUsers.find(u => u.id === session.userId && u.role === session.role) ?? defaultUsers[0];
+      return (
+        defaultUsers.find(u => u.id === session.userId && u.role === session.role) ??
+        defaultUsers[0]
+      );
     }
     return defaultUsers[0];
   });
+
+  const [users] = useState<User[]>(defaultUsers);
 
   const handleRoleChange = useCallback((role: Role) => {
     setCurrentRole(role);
@@ -69,6 +83,7 @@ export function useSession() {
   return {
     currentRole,
     currentUser,
+    users,
     setCurrentRole: handleRoleChange,
     setCurrentUser: handleUserChange,
     logout: handleLogout

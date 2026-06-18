@@ -1,46 +1,17 @@
-import React, { useState, useMemo, useCallback, ChangeEvent, FormEvent } from "react";
+import React, { useMemo, useCallback } from "react";
 import "./styles.css";
-import type {
-  Sample,
-  Role,
-  User,
-  SampleCategory,
-  StainingMethod,
-  SampleFormData,
-  MagnificationFormData,
-  FormErrors,
-  ObservationTemplate,
-  ReportData,
-  WorkbenchView
-} from "./types";
-import {
-  INITIAL_SAMPLE_FORM_DATA,
-  PROJECT_CONFIG,
-  MAGNIFICATION_GROUPS
-} from "./constants";
-import { runQualityCheck } from "./utils/qualityCheck";
-import {
-  generateObservationReport,
-  generateReportPlainText,
-  downloadTextFile
-} from "./utils/reportGenerator";
-import {
-  canSubmitSample,
-  canModifySample,
-  canModifyMagnification,
-  canReview,
-  canManageBatches,
-  canManageConfig,
-  canExportReport,
-  getPermissionDeniedMessage
-} from "./utils/permissions";
+import type { Role, User } from "./types";
+import { MAGNIFICATION_GROUPS } from "./constants";
 import { useSamples } from "./hooks/useSamples";
 import { useBatches } from "./hooks/useBatches";
 import { useAdminConfig } from "./hooks/useAdminConfig";
 import { useObservationTemplates } from "./hooks/useObservationTemplates";
 import { useSession } from "./hooks/useSession";
-import { defaultUsers } from "./db";
-import { MetricCard } from "./components/MetricCard";
+import { useStudentEntry } from "./hooks/useStudentEntry";
+import { useTeacherWorkbench } from "./hooks/useTeacherWorkbench";
+import { useAdminHandlers } from "./hooks/useAdminHandlers";
+import { useReportDialog } from "./hooks/useReportDialog";
+import { useViewNavigation } from "./hooks/useViewNavigation";
 import { QualityCheckPanel } from "./components/QualityCheckPanel";
 import { ConfirmDialog } from "./components/ConfirmDialog";
 import { ReportPreviewDialog } from "./components/ReportPreviewDialog";
@@ -52,24 +23,14 @@ import { AdminWorkbench } from "./components/AdminWorkbench";
 import { BatchReviewWorkbench } from "./components/BatchReviewWorkbench";
 
 function App() {
-  const [formData, setFormData] = useState<SampleFormData>(INITIAL_SAMPLE_FORM_DATA);
-  const [errors, setErrors] = useState<FormErrors>({});
-  const [currentView, setCurrentView] = useState<WorkbenchView>("list");
-  const [selectedSampleId, setSelectedSampleId] = useState<string | null>(null);
-  const [selectedTemplate, setSelectedTemplate] = useState<string | null>(null);
-
   const {
     currentRole,
     currentUser,
+    users,
     setCurrentRole: setCurrentRoleBase,
     setCurrentUser: setCurrentUserBase,
     logout
   } = useSession();
-  const [users] = useState<User[]>(defaultUsers);
-  const [submitConfirmDialog, setSubmitConfirmDialog] = useState(false);
-  const [reportDialogOpen, setReportDialogOpen] = useState(false);
-  const [reportData, setReportData] = useState<ReportData | null>(null);
-  const [reportPlainText, setReportPlainText] = useState<string>("");
 
   const {
     sampleCategories,
@@ -79,7 +40,7 @@ function App() {
     deleteCategory,
     addStainingMethod,
     updateStainingMethod,
-    deleteStainingMethod,
+    deleteStainingMethod
   } = useAdminConfig();
 
   const {
@@ -117,43 +78,92 @@ function App() {
     removeSampleFromBatch
   } = useBatches(dbStatus, samples);
 
-  const [teacherSubView, setTeacherSubView] = useState<"overview" | "batch">("overview");
+  const studentEntry = useStudentEntry({
+    currentRole,
+    currentUser,
+    addSample,
+    batches,
+    addSampleToBatch
+  });
 
-  const handleRoleChange = useCallback((role: Role) => {
-    setCurrentRoleBase(role);
-    setCurrentView("list");
-    setSelectedSampleId(null);
-    setFormData(INITIAL_SAMPLE_FORM_DATA);
-    setErrors({});
-    setSelectedTemplate(null);
-    setTeacherSubView("overview");
-  }, [setCurrentRoleBase]);
+  const teacherWorkbench = useTeacherWorkbench({
+    currentRole,
+    currentUser,
+    toggleQualified,
+    createBatch,
+    closeBatch,
+    reopenBatch,
+    deleteBatch,
+    addSampleToBatch,
+    removeSampleFromBatch
+  });
 
-  const handleUserChange = useCallback((user: User) => {
-    setCurrentUserBase(user);
-    setCurrentView("list");
-    setSelectedSampleId(null);
-    setFormData(prev => ({
-      ...prev,
-      studentId: user.id,
-      studentName: user.name
-    }));
-    setErrors({});
-    setSelectedTemplate(null);
-    setTeacherSubView("overview");
-  }, [setCurrentUserBase]);
+  const adminHandlers = useAdminHandlers({
+    currentRole,
+    addCategory,
+    updateCategory,
+    deleteCategory,
+    addStainingMethod,
+    updateStainingMethod,
+    deleteStainingMethod,
+    addTemplate,
+    updateTemplate,
+    deleteTemplate,
+    bulkUpdateSampleType,
+    bulkUpdateStainingMethod
+  });
 
-  const selectedSample = useMemo(
-    () => samples.find(sample => sample.id === selectedSampleId) ?? null,
-    [samples, selectedSampleId]
+  const reportDialog = useReportDialog({
+    currentRole,
+    samples
+  });
+
+  const viewNavigation = useViewNavigation({
+    samples,
+    currentRole,
+    currentUser,
+    addMagnification,
+    updateMagnification,
+    deleteMagnification
+  });
+
+  const handleRoleChange = useCallback(
+    (role: Role) => {
+      setCurrentRoleBase(role);
+      viewNavigation.resetViewNavigation();
+      studentEntry.resetStudentEntry();
+      teacherWorkbench.resetTeacherWorkbench();
+    },
+    [setCurrentRoleBase, viewNavigation, studentEntry, teacherWorkbench]
+  );
+
+  const handleUserChange = useCallback(
+    (user: User) => {
+      setCurrentUserBase(user);
+      viewNavigation.resetViewNavigation();
+      studentEntry.setFormData(prev => ({
+        ...prev,
+        studentId: user.id,
+        studentName: user.name
+      }));
+      studentEntry.resetForUserChange();
+      teacherWorkbench.resetTeacherWorkbench();
+    },
+    [setCurrentUserBase, viewNavigation, studentEntry, teacherWorkbench]
   );
 
   const metrics = useMemo(() => {
     const uniqueSamples = samples.length;
-    const totalFields = samples.reduce((sum, sample) => sum + sample.magnifications.length, 0);
-    const uniqueStains = new Set(samples.map(sample => sample.stainingMethod)).size;
+    const totalFields = samples.reduce(
+      (sum, sample) => sum + sample.magnifications.length,
+      0
+    );
+    const uniqueStains = new Set(samples.map(sample => sample.stainingMethod))
+      .size;
     const uniqueStructures = new Set(
-      samples.flatMap(sample => sample.magnifications.map(record => record.observedStructure))
+      samples.flatMap(sample =>
+        sample.magnifications.map(record => record.observedStructure)
+      )
     ).size;
     return [
       String(uniqueSamples),
@@ -178,359 +188,6 @@ function App() {
     }));
   }, [samples]);
 
-  const qualityResult = useMemo(() => {
-    return runQualityCheck({
-      sampleName: formData.sampleName,
-      sampleType: formData.sampleType,
-      stainingMethod: formData.stainingMethod,
-      magnification: formData.magnification,
-      observedStructure: formData.observedStructure,
-      fieldDescription: formData.fieldDescription
-    }, true);
-  }, [formData]);
-
-  const handleInputChange = (e: ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
-    const { name, value } = e.target;
-    setFormData(prev => ({ ...prev, [name]: value }));
-    if (errors[name as keyof FormErrors]) {
-      setErrors(prev => ({ ...prev, [name]: undefined }));
-    }
-  };
-
-  const validateForm = (): boolean => {
-    const newErrors: FormErrors = {};
-
-    PROJECT_CONFIG.fields.forEach(field => {
-      const key = field.key as keyof SampleFormData;
-      const value = formData[key];
-      const errKey = key as keyof FormErrors;
-
-      if (field.required && !value.trim()) {
-        newErrors[errKey] = `${field.label}为必填项`;
-      }
-
-      if (field.pattern && value.trim() && !field.pattern.test(value)) {
-        newErrors[errKey] = `${field.label}格式应为 数字+x，如 100x、400x`;
-      }
-    });
-
-    setErrors(newErrors);
-    return Object.keys(newErrors).length === 0;
-  };
-
-  const doSubmitSample = () => {
-    if (!currentUser) return;
-    if (!canSubmitSample(currentRole)) {
-      alert(getPermissionDeniedMessage("提交样本"));
-      return;
-    }
-    const sampleId = addSample(formData, currentUser.id, currentUser.name);
-    const openBatch = batches.find(b => b.status === "open");
-    if (openBatch) {
-      addSampleToBatch(openBatch.id, sampleId);
-    }
-    setFormData(INITIAL_SAMPLE_FORM_DATA);
-    setErrors({});
-    setSelectedTemplate(null);
-    setSubmitConfirmDialog(false);
-  };
-
-  const handleSubmit = (e: FormEvent<HTMLFormElement>, forceSubmit: boolean = false) => {
-    e.preventDefault();
-
-    if (!validateForm()) return;
-    if (!currentUser) return;
-
-    const checkResult = runQualityCheck(
-      {
-        sampleName: formData.sampleName,
-        sampleType: formData.sampleType,
-        stainingMethod: formData.stainingMethod,
-        magnification: formData.magnification,
-        observedStructure: formData.observedStructure,
-        fieldDescription: formData.fieldDescription
-      },
-      true
-    );
-
-    if (checkResult.hasErrors) {
-      const firstError = checkResult.issues.find(i => i.level === "error");
-      alert(`保存失败：${firstError?.message || "存在必填项未填写或格式不正确，请检查后再提交。"}`);
-      return;
-    }
-
-    if (checkResult.hasWarnings && !forceSubmit) {
-      setSubmitConfirmDialog(true);
-      return;
-    }
-
-    doSubmitSample();
-  };
-
-  const handleConfirmSubmit = () => {
-    doSubmitSample();
-  };
-
-  const handleCancelSubmit = () => {
-    setSubmitConfirmDialog(false);
-  };
-
-  const handleSampleClick = (sample: Sample) => {
-    if (currentRole === "student" && sample.studentId !== currentUser?.id) {
-      alert(getPermissionDeniedMessage("查看其他学生的样本详情"));
-      return;
-    }
-    setSelectedSampleId(sample.id);
-    setCurrentView("detail");
-  };
-
-  const handleBackToList = () => {
-    setCurrentView("list");
-    setSelectedSampleId(null);
-  };
-
-  const handleAddMagnification = (sampleId: string, data: MagnificationFormData) => {
-    if (!currentUser) return;
-    const sample = samples.find(s => s.id === sampleId);
-    if (!sample || !canModifySample(currentRole, currentUser.id, sample)) {
-      alert(getPermissionDeniedMessage("添加视野记录"));
-      return;
-    }
-    addMagnification(sampleId, data);
-  };
-
-  const handleUpdateMagnification = (
-    sampleId: string,
-    magId: string,
-    data: MagnificationFormData
-  ) => {
-    if (!currentUser) return;
-    const sample = samples.find(s => s.id === sampleId);
-    if (!sample) return;
-    const record = sample.magnifications.find(r => r.id === magId);
-    if (!record || !canModifyMagnification(currentRole, currentUser.id, sample, record)) {
-      alert(getPermissionDeniedMessage("编辑视野记录"));
-      return;
-    }
-    updateMagnification(sampleId, magId, data);
-  };
-
-  const handleDeleteMagnification = (sampleId: string, magId: string) => {
-    if (!currentUser) return;
-    const sample = samples.find(s => s.id === sampleId);
-    if (!sample) return;
-    const record = sample.magnifications.find(r => r.id === magId);
-    if (!record || !canModifyMagnification(currentRole, currentUser.id, sample, record)) {
-      alert(getPermissionDeniedMessage("删除视野记录"));
-      return;
-    }
-    deleteMagnification(sampleId, magId);
-  };
-
-  const handleToggleQualified = (
-    sampleId: string,
-    magId: string,
-    qualified: boolean,
-    unqualifiedReason?: string,
-    revisionSuggestion?: string
-  ) => {
-    if (!currentUser) return;
-    if (!canReview(currentRole)) {
-      alert(getPermissionDeniedMessage("评阅"));
-      return;
-    }
-    toggleQualified(sampleId, magId, qualified, currentUser.name, unqualifiedReason, revisionSuggestion);
-  };
-
-  const handleExportSummary = (filteredSamples?: Sample[]) => {
-    if (!canExportReport(currentRole)) {
-      alert(getPermissionDeniedMessage("导出报告"));
-      return;
-    }
-    const targetSamples = filteredSamples ?? samples;
-    if (targetSamples.length === 0) {
-      alert("暂无任何样本数据，无法生成报告。请先添加观察记录。");
-      return;
-    }
-    const generatedReport = generateObservationReport(targetSamples);
-    const plainText = generateReportPlainText(generatedReport);
-    setReportData(generatedReport);
-    setReportPlainText(plainText);
-    setReportDialogOpen(true);
-  };
-
-  const handleCloseReportDialog = () => {
-    setReportDialogOpen(false);
-  };
-
-  const handleDownloadReport = () => {
-    if (!canExportReport(currentRole)) {
-      alert(getPermissionDeniedMessage("下载报告"));
-      return;
-    }
-    if (!reportData || reportData.totalSamples === 0) {
-      alert("暂无任何样本数据，无法下载报告。请先添加观察记录。");
-      return;
-    }
-    const now = new Date();
-    const dateStr = `${now.getFullYear()}${String(now.getMonth() + 1).padStart(2, "0")}${String(now.getDate()).padStart(2, "0")}`;
-    const timeStr = `${String(now.getHours()).padStart(2, "0")}${String(now.getMinutes()).padStart(2, "0")}`;
-    const filename = `显微镜观察实验报告_${dateStr}_${timeStr}.txt`;
-    downloadTextFile(reportPlainText, filename);
-  };
-
-  const handleTemplateSelect = (template: ObservationTemplate) => {
-    setSelectedTemplate(template.id);
-    const studentId = currentUser?.id || "";
-    const studentName = currentUser?.name || "";
-    setFormData(prev => ({
-      ...prev,
-      sampleType: template.sampleType,
-      stainingMethod: template.stainingMethod,
-      magnification: template.magnification,
-      observedStructure: template.observedStructure,
-      studentId,
-      studentName
-    }));
-    setErrors({});
-  };
-
-  const handleCreateBatch = (name: string, description: string, userId: string, userName: string) => {
-    if (!canManageBatches(currentRole)) {
-      alert(getPermissionDeniedMessage("创建批次"));
-      return;
-    }
-    createBatch(name, description, userId, userName);
-  };
-
-  const handleCloseBatch = (batchId: string) => {
-    if (!canManageBatches(currentRole)) {
-      alert(getPermissionDeniedMessage("截止批次"));
-      return;
-    }
-    closeBatch(batchId);
-  };
-
-  const handleReopenBatch = (batchId: string) => {
-    if (!canManageBatches(currentRole)) {
-      alert(getPermissionDeniedMessage("重新开启批次"));
-      return;
-    }
-    reopenBatch(batchId);
-  };
-
-  const handleDeleteBatch = (batchId: string) => {
-    if (!canManageBatches(currentRole)) {
-      alert(getPermissionDeniedMessage("删除批次"));
-      return;
-    }
-    deleteBatch(batchId);
-  };
-
-  const handleAddSampleToBatch = (batchId: string, sampleId: string) => {
-    if (!canManageBatches(currentRole)) {
-      alert(getPermissionDeniedMessage("添加样本到批次"));
-      return;
-    }
-    addSampleToBatch(batchId, sampleId);
-  };
-
-  const handleRemoveSampleFromBatch = (batchId: string, sampleId: string) => {
-    if (!canManageBatches(currentRole)) {
-      alert(getPermissionDeniedMessage("从批次移出样本"));
-      return;
-    }
-    removeSampleFromBatch(batchId, sampleId);
-  };
-
-  const handleAddCategory = (name: string): boolean => {
-    if (!canManageConfig(currentRole)) {
-      alert(getPermissionDeniedMessage("添加分类"));
-      return false;
-    }
-    return addCategory(name) !== null;
-  };
-
-  const handleUpdateCategory = (id: string, name: string): boolean => {
-    if (!canManageConfig(currentRole)) {
-      alert(getPermissionDeniedMessage("更新分类"));
-      return false;
-    }
-    return updateCategory(id, name);
-  };
-
-  const handleDeleteCategory = (id: string) => {
-    if (!canManageConfig(currentRole)) {
-      alert(getPermissionDeniedMessage("删除分类"));
-      return;
-    }
-    deleteCategory(id);
-  };
-
-  const handleAddStainingMethod = (name: string): boolean => {
-    if (!canManageConfig(currentRole)) {
-      alert(getPermissionDeniedMessage("添加染色方式"));
-      return false;
-    }
-    return addStainingMethod(name) !== null;
-  };
-
-  const handleUpdateStainingMethod = (id: string, name: string): boolean => {
-    if (!canManageConfig(currentRole)) {
-      alert(getPermissionDeniedMessage("更新染色方式"));
-      return false;
-    }
-    return updateStainingMethod(id, name);
-  };
-
-  const handleDeleteStainingMethod = (id: string) => {
-    if (!canManageConfig(currentRole)) {
-      alert(getPermissionDeniedMessage("删除染色方式"));
-      return;
-    }
-    deleteStainingMethod(id);
-  };
-
-  const handleAddTemplate = (t: Omit<ObservationTemplate, "id">): boolean => {
-    if (!canManageConfig(currentRole)) {
-      alert(getPermissionDeniedMessage("添加模板"));
-      return false;
-    }
-    return addTemplate(t) !== null;
-  };
-
-  const handleUpdateTemplate = (id: string, t: Partial<Omit<ObservationTemplate, "id">>): boolean => {
-    if (!canManageConfig(currentRole)) {
-      alert(getPermissionDeniedMessage("更新模板"));
-      return false;
-    }
-    return updateTemplate(id, t);
-  };
-
-  const handleDeleteTemplate = (id: string) => {
-    if (!canManageConfig(currentRole)) {
-      alert(getPermissionDeniedMessage("删除模板"));
-      return;
-    }
-    deleteTemplate(id);
-  };
-
-  const handleBulkUpdateSampleType = (oldName: string, newName: string): number => {
-    if (!canManageConfig(currentRole)) {
-      alert(getPermissionDeniedMessage("批量更新样本类型"));
-      return 0;
-    }
-    return bulkUpdateSampleType(oldName, newName);
-  };
-
-  const handleBulkUpdateStainingMethod = (oldName: string, newName: string): number => {
-    if (!canManageConfig(currentRole)) {
-      alert(getPermissionDeniedMessage("批量更新染色方式"));
-      return 0;
-    }
-    return bulkUpdateStainingMethod(oldName, newName);
-  };
-
   if (isLoading) {
     return (
       <main className="app-shell">
@@ -543,7 +200,7 @@ function App() {
 
   return (
     <main className="app-shell">
-      {currentView === "list" ? (
+      {viewNavigation.currentView === "list" ? (
         <>
           <RoleSelector
             currentRole={currentRole}
@@ -561,14 +218,14 @@ function App() {
               sampleCategories={sampleCategories}
               stainingMethods={stainingMethods}
               templates={templates}
-              formData={formData}
-              errors={errors}
-              selectedTemplate={selectedTemplate}
-              qualityResult={qualityResult}
-              onTemplateSelect={handleTemplateSelect}
-              onInputChange={handleInputChange}
-              onSubmit={handleSubmit}
-              onSampleClick={handleSampleClick}
+              formData={studentEntry.formData}
+              errors={studentEntry.errors}
+              selectedTemplate={studentEntry.selectedTemplate}
+              qualityResult={studentEntry.qualityResult}
+              onTemplateSelect={studentEntry.handleTemplateSelect}
+              onInputChange={studentEntry.handleInputChange}
+              onSubmit={studentEntry.handleSubmit}
+              onSampleClick={viewNavigation.handleSampleClick}
             />
           )}
 
@@ -577,28 +234,34 @@ function App() {
               <div className="teacher-tabs">
                 <button
                   type="button"
-                  className={`teacher-tab ${teacherSubView === "overview" ? "active" : ""}`}
-                  onClick={() => setTeacherSubView("overview")}
+                  className={`teacher-tab ${
+                    teacherWorkbench.teacherSubView === "overview"
+                      ? "active"
+                      : ""
+                  }`}
+                  onClick={() => teacherWorkbench.setTeacherSubView("overview")}
                 >
                   👨‍🏫 学生管理
                 </button>
                 <button
                   type="button"
-                  className={`teacher-tab ${teacherSubView === "batch" ? "active" : ""}`}
-                  onClick={() => setTeacherSubView("batch")}
+                  className={`teacher-tab ${
+                    teacherWorkbench.teacherSubView === "batch" ? "active" : ""
+                  }`}
+                  onClick={() => teacherWorkbench.setTeacherSubView("batch")}
                 >
                   🧪 批量复核
                 </button>
               </div>
 
-              {teacherSubView === "overview" ? (
+              {teacherWorkbench.teacherSubView === "overview" ? (
                 <TeacherWorkbench
                   currentUser={currentUser}
                   currentRole={currentRole}
                   samples={samples}
                   users={users}
-                  onSampleClick={handleSampleClick}
-                  onToggleQualified={handleToggleQualified}
+                  onSampleClick={viewNavigation.handleSampleClick}
+                  onToggleQualified={teacherWorkbench.handleToggleQualified}
                 />
               ) : (
                 <BatchReviewWorkbench
@@ -607,14 +270,18 @@ function App() {
                   samples={samples}
                   users={users}
                   batches={batches}
-                  onCreateBatch={handleCreateBatch}
-                  onCloseBatch={handleCloseBatch}
-                  onReopenBatch={handleReopenBatch}
-                  onDeleteBatch={handleDeleteBatch}
-                  onToggleQualified={handleToggleQualified}
-                  onSampleClick={handleSampleClick}
-                  onAddSampleToBatch={handleAddSampleToBatch}
-                  onRemoveSampleFromBatch={handleRemoveSampleFromBatch}
+                  onCreateBatch={teacherWorkbench.handleCreateBatch}
+                  onCloseBatch={teacherWorkbench.handleCloseBatch}
+                  onReopenBatch={teacherWorkbench.handleReopenBatch}
+                  onDeleteBatch={teacherWorkbench.handleDeleteBatch}
+                  onToggleQualified={teacherWorkbench.handleToggleQualified}
+                  onSampleClick={viewNavigation.handleSampleClick}
+                  onAddSampleToBatch={
+                    teacherWorkbench.handleAddSampleToBatch
+                  }
+                  onRemoveSampleFromBatch={
+                    teacherWorkbench.handleRemoveSampleFromBatch
+                  }
                 />
               )}
             </>
@@ -628,20 +295,26 @@ function App() {
                 sampleCategories={sampleCategories}
                 stainingMethods={stainingMethods}
                 templates={templates}
-                onAddCategory={handleAddCategory}
-                onUpdateCategory={handleUpdateCategory}
-                onDeleteCategory={handleDeleteCategory}
-                onAddStainingMethod={handleAddStainingMethod}
-                onUpdateStainingMethod={handleUpdateStainingMethod}
-                onDeleteStainingMethod={handleDeleteStainingMethod}
-                onAddTemplate={handleAddTemplate}
-                onUpdateTemplate={handleUpdateTemplate}
-                onDeleteTemplate={handleDeleteTemplate}
+                onAddCategory={adminHandlers.handleAddCategory}
+                onUpdateCategory={adminHandlers.handleUpdateCategory}
+                onDeleteCategory={adminHandlers.handleDeleteCategory}
+                onAddStainingMethod={adminHandlers.handleAddStainingMethod}
+                onUpdateStainingMethod={
+                  adminHandlers.handleUpdateStainingMethod
+                }
+                onDeleteStainingMethod={
+                  adminHandlers.handleDeleteStainingMethod
+                }
+                onAddTemplate={adminHandlers.handleAddTemplate}
+                onUpdateTemplate={adminHandlers.handleUpdateTemplate}
+                onDeleteTemplate={adminHandlers.handleDeleteTemplate}
                 isTemplateNameDuplicate={isTemplateNameDuplicate}
                 countSamplesByType={countSamplesByType}
                 countSamplesByStaining={countSamplesByStaining}
-                bulkUpdateSampleType={handleBulkUpdateSampleType}
-                bulkUpdateStainingMethod={handleBulkUpdateStainingMethod}
+                bulkUpdateSampleType={adminHandlers.handleBulkUpdateSampleType}
+                bulkUpdateStainingMethod={
+                  adminHandlers.handleBulkUpdateStainingMethod
+                }
               />
             </>
           )}
@@ -653,7 +326,9 @@ function App() {
               </div>
               <div className="storage-alert-content">
                 <p className="storage-alert-title">
-                  {dbStatus === "unsupported" ? "浏览器不支持本地存储" : "本地存储初始化失败"}
+                  {dbStatus === "unsupported"
+                    ? "浏览器不支持本地存储"
+                    : "本地存储初始化失败"}
                 </p>
                 <p className="storage-alert-message">{dbError}</p>
               </div>
@@ -661,14 +336,14 @@ function App() {
           )}
         </>
       ) : (
-        selectedSample && currentUser && (
+        viewNavigation.selectedSample && currentUser && (
           <SampleDetail
-            sample={selectedSample}
-            onBack={handleBackToList}
-            onAddMagnification={handleAddMagnification}
-            onUpdateMagnification={handleUpdateMagnification}
-            onDeleteMagnification={handleDeleteMagnification}
-            onToggleQualified={handleToggleQualified}
+            sample={viewNavigation.selectedSample}
+            onBack={viewNavigation.handleBackToList}
+            onAddMagnification={viewNavigation.handleAddMagnification}
+            onUpdateMagnification={viewNavigation.handleUpdateMagnification}
+            onDeleteMagnification={viewNavigation.handleDeleteMagnification}
+            onToggleQualified={teacherWorkbench.handleToggleQualified}
             currentRole={currentRole}
             currentUserName={currentUser.name}
             currentUserId={currentUser.id}
@@ -677,24 +352,27 @@ function App() {
       )}
 
       <ConfirmDialog
-        isOpen={submitConfirmDialog}
+        isOpen={studentEntry.submitConfirmDialog}
         title="存在需要注意的问题"
         icon="⚠️"
         message="当前记录存在一些提醒项，虽然可以继续保存，但建议先进行优化。是否确认提交？"
         confirmText="仍要提交"
         cancelText="返回修改"
-        onConfirm={handleConfirmSubmit}
-        onCancel={handleCancelSubmit}
+        onConfirm={studentEntry.handleConfirmSubmit}
+        onCancel={studentEntry.handleCancelSubmit}
       >
-        <QualityCheckPanel result={qualityResult} title="检查结果详情" />
+        <QualityCheckPanel
+          result={studentEntry.qualityResult}
+          title="检查结果详情"
+        />
       </ConfirmDialog>
 
       <ReportPreviewDialog
-        isOpen={reportDialogOpen}
-        reportText={reportPlainText}
-        reportData={reportData}
-        onClose={handleCloseReportDialog}
-        onDownload={handleDownloadReport}
+        isOpen={reportDialog.reportDialogOpen}
+        reportText={reportDialog.reportPlainText}
+        reportData={reportDialog.reportData}
+        onClose={reportDialog.handleCloseReportDialog}
+        onDownload={reportDialog.handleDownloadReport}
       />
     </main>
   );
