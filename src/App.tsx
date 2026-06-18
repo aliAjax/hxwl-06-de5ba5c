@@ -31,7 +31,6 @@ import {
   canReview,
   canManageBatches,
   canManageConfig,
-  canImportExport,
   canExportReport,
   getPermissionDeniedMessage
 } from "./utils/permissions";
@@ -51,7 +50,6 @@ import { StudentWorkbench } from "./components/StudentWorkbench";
 import { TeacherWorkbench } from "./components/TeacherWorkbench";
 import { AdminWorkbench } from "./components/AdminWorkbench";
 import { BatchReviewWorkbench } from "./components/BatchReviewWorkbench";
-import { DataImportExportPanel } from "./components/DataImportExportPanel";
 
 function App() {
   const [formData, setFormData] = useState<SampleFormData>(INITIAL_SAMPLE_FORM_DATA);
@@ -82,7 +80,6 @@ function App() {
     addStainingMethod,
     updateStainingMethod,
     deleteStainingMethod,
-    refreshConfig
   } = useAdminConfig();
 
   const {
@@ -90,8 +87,7 @@ function App() {
     addTemplate,
     updateTemplate,
     deleteTemplate,
-    isTemplateNameDuplicate,
-    refreshTemplates
+    isTemplateNameDuplicate
   } = useObservationTemplates();
 
   const {
@@ -108,8 +104,7 @@ function App() {
     bulkUpdateSampleType,
     bulkUpdateStainingMethod,
     countSamplesByType,
-    countSamplesByStaining,
-    refreshSamples
+    countSamplesByStaining
   } = useSamples();
 
   const {
@@ -119,8 +114,7 @@ function App() {
     reopenBatch,
     deleteBatch,
     addSampleToBatch,
-    removeSampleFromBatch,
-    refreshBatches
+    removeSampleFromBatch
   } = useBatches(dbStatus, samples);
 
   const [teacherSubView, setTeacherSubView] = useState<"overview" | "batch">("overview");
@@ -537,15 +531,6 @@ function App() {
     return bulkUpdateStainingMethod(oldName, newName);
   };
 
-  const handleDataImported = useCallback(async () => {
-    await Promise.all([
-      refreshSamples(),
-      refreshBatches()
-    ]);
-    refreshConfig();
-    refreshTemplates();
-  }, [refreshSamples, refreshBatches, refreshConfig, refreshTemplates]);
-
   if (isLoading) {
     return (
       <main className="app-shell">
@@ -614,7 +599,6 @@ function App() {
                   users={users}
                   onSampleClick={handleSampleClick}
                   onToggleQualified={handleToggleQualified}
-                  onExportSummary={handleExportSummary}
                 />
               ) : (
                 <BatchReviewWorkbench
@@ -638,7 +622,6 @@ function App() {
 
           {currentUser && currentRole === "admin" && (
             <>
-              <DataImportExportPanel currentRole={currentRole} onDataImported={handleDataImported} />
               <AdminWorkbench
                 currentUser={currentUser}
                 currentRole={currentRole}

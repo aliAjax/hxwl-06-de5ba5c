@@ -1,6 +1,6 @@
 import React, { useState, useMemo } from "react";
 import type { User, Sample, Role } from "../types";
-import { canReview, canExportReport } from "../utils/permissions";
+import { canReview } from "../utils/permissions";
 import { getSampleQualityOverview } from "../utils/qualityCheck";
 import { MetricCard } from "./MetricCard";
 import { QualityBadge } from "./QualityBadge";
@@ -12,7 +12,6 @@ interface TeacherWorkbenchProps {
   users: User[];
   onSampleClick: (sample: Sample) => void;
   onToggleQualified: (sampleId: string, magId: string, qualified: boolean) => void;
-  onExportSummary: (filteredSamples: Sample[]) => void;
 }
 
 export function TeacherWorkbench({
@@ -20,8 +19,7 @@ export function TeacherWorkbench({
   currentRole,
   samples,
   users,
-  onSampleClick,
-  onExportSummary
+  onSampleClick
 }: TeacherWorkbenchProps) {
   if (!canReview(currentRole)) {
     return (
@@ -85,15 +83,6 @@ export function TeacherWorkbench({
             <h2>查看学生记录</h2>
           </div>
           <div className="teacher-filters">
-            {canExportReport(currentRole) && (
-              <button
-                type="button"
-                className="export-summary-btn"
-                onClick={() => onExportSummary(filteredSamples)}
-              >
-                📊 记录导出摘要
-              </button>
-            )}
             <select
               value={selectedStudentId}
               onChange={(e) => setSelectedStudentId(e.target.value)}

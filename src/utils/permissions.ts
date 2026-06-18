@@ -32,11 +32,11 @@ export function canManageConfig(role: Role): boolean {
 }
 
 export function canImportExport(role: Role): boolean {
-  return role === "admin";
+  return false;
 }
 
 export function canExportReport(role: Role): boolean {
-  return role === "teacher" || role === "admin";
+  return false;
 }
 
 export function canViewSampleDetail(role: Role, userId: string, sample: Sample): boolean {
