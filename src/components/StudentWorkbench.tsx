@@ -12,7 +12,6 @@ import type {
 } from "../types";
 import {
   MAGNIFICATION_GROUPS,
-  OBSERVATION_TEMPLATES,
   PROJECT_CONFIG
 } from "../constants";
 import { getSampleQualityStatus } from "../utils/qualityCheck";
@@ -25,6 +24,7 @@ interface StudentWorkbenchProps {
   samples: Sample[];
   sampleCategories: SampleCategory[];
   stainingMethods: StainingMethod[];
+  templates: ObservationTemplate[];
   formData: SampleFormData;
   errors: FormErrors;
   selectedTemplate: string | null;
@@ -40,6 +40,7 @@ export function StudentWorkbench({
   samples,
   sampleCategories,
   stainingMethods,
+  templates,
   formData,
   errors,
   selectedTemplate,
@@ -174,21 +175,25 @@ export function StudentWorkbench({
               <p className="template-hint">选择模板快速填充观察字段，之后可手动修改</p>
             </div>
             <div className="template-grid">
-              {OBSERVATION_TEMPLATES.map(template => (
-                <article
-                  key={template.id}
-                  className={`template-card ${selectedTemplate === template.id ? "template-selected" : ""}`}
-                  onClick={() => onTemplateSelect(template)}
-                >
-                  <div className="template-icon">{template.icon}</div>
-                  <h4>{template.name}</h4>
-                  <p className="template-desc">{template.description}</p>
-                  <div className="template-info">
-                    <span>染色：{template.stainingMethod}</span>
-                    <span>倍数：{template.magnification}</span>
-                  </div>
-                </article>
-              ))}
+              {templates.length === 0 ? (
+                <p className="empty-description">暂无可用的观察模板，请联系管理员添加。</p>
+              ) : (
+                templates.map(template => (
+                  <article
+                    key={template.id}
+                    className={`template-card ${selectedTemplate === template.id ? "template-selected" : ""}`}
+                    onClick={() => onTemplateSelect(template)}
+                  >
+                    <div className="template-icon">{template.icon}</div>
+                    <h4>{template.name}</h4>
+                    <p className="template-desc">{template.description}</p>
+                    <div className="template-info">
+                      <span>染色：{template.stainingMethod}</span>
+                      <span>倍数：{template.magnification}</span>
+                    </div>
+                  </article>
+                ))
+              )}
             </div>
           </div>
 

@@ -5,10 +5,11 @@ import type {
   Sample,
   SampleCategory,
   StainingMethod,
-  ObservationBatch
+  ObservationBatch,
+  ObservationTemplate
 } from "./types";
 
-export type { Role, User, MagnificationRecord, Sample, SampleCategory, StainingMethod, ObservationBatch };
+export type { Role, User, MagnificationRecord, Sample, SampleCategory, StainingMethod, ObservationBatch, ObservationTemplate };
 
 interface LegacyRecord {
   sampleName: string;
@@ -52,6 +53,53 @@ export const defaultStainingMethods: StainingMethod[] = [
   { id: "stain-3", name: "革兰氏染色" },
   { id: "stain-4", name: "瑞氏染色" },
   { id: "stain-5", name: "活体观察" }
+];
+
+export const defaultObservationTemplates: ObservationTemplate[] = [
+  {
+    id: "template-1",
+    name: "植物组织",
+    category: "植物组织",
+    sampleType: "植物组织",
+    stainingMethod: "碘液",
+    magnification: "400x",
+    observedStructure: "细胞壁、细胞核、叶绿体",
+    description: "适用于洋葱表皮、叶片等植物玻片的观察记录",
+    icon: "🌿"
+  },
+  {
+    id: "template-2",
+    name: "动物组织",
+    category: "动物组织",
+    sampleType: "动物组织",
+    stainingMethod: "HE染色",
+    magnification: "400x",
+    observedStructure: "细胞膜、细胞质、细胞核",
+    description: "适用于口腔上皮细胞、肌肉组织等动物玻片",
+    icon: "🫀"
+  },
+  {
+    id: "template-3",
+    name: "微生物",
+    category: "微生物",
+    sampleType: "微生物",
+    stainingMethod: "革兰氏染色",
+    magnification: "1000x",
+    observedStructure: "细胞壁、鞭毛、荚膜",
+    description: "适用于细菌、真菌等微生物玻片观察",
+    icon: "🦠"
+  },
+  {
+    id: "template-4",
+    name: "血液涂片",
+    category: "血液涂片",
+    sampleType: "血液涂片",
+    stainingMethod: "瑞氏染色",
+    magnification: "1000x",
+    observedStructure: "红细胞、白细胞、血小板",
+    description: "适用于人血或动物血涂片的观察记录",
+    icon: "🩸"
+  }
 ];
 
 const initialLegacyRecords: (LegacyRecord & { studentId: string; studentName: string })[] = [

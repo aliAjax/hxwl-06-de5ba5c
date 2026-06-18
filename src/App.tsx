@@ -27,6 +27,7 @@ import {
 import { useSamples } from "./hooks/useSamples";
 import { useBatches } from "./hooks/useBatches";
 import { useAdminConfig } from "./hooks/useAdminConfig";
+import { useObservationTemplates } from "./hooks/useObservationTemplates";
 import { defaultUsers } from "./db";
 import { MetricCard } from "./components/MetricCard";
 import { QualityCheckPanel } from "./components/QualityCheckPanel";
@@ -64,6 +65,14 @@ function App() {
     updateStainingMethod,
     deleteStainingMethod
   } = useAdminConfig();
+
+  const {
+    templates,
+    addTemplate,
+    updateTemplate,
+    deleteTemplate,
+    isTemplateNameDuplicate
+  } = useObservationTemplates();
 
   const {
     samples,
@@ -340,6 +349,7 @@ function App() {
               samples={samples}
               sampleCategories={sampleCategories}
               stainingMethods={stainingMethods}
+              templates={templates}
               formData={formData}
               errors={errors}
               selectedTemplate={selectedTemplate}
@@ -403,12 +413,17 @@ function App() {
               currentUser={currentUser}
               sampleCategories={sampleCategories}
               stainingMethods={stainingMethods}
+              templates={templates}
               onAddCategory={(name: string) => addCategory(name) !== null}
               onUpdateCategory={updateCategory}
               onDeleteCategory={deleteCategory}
               onAddStainingMethod={(name: string) => addStainingMethod(name) !== null}
               onUpdateStainingMethod={updateStainingMethod}
               onDeleteStainingMethod={deleteStainingMethod}
+              onAddTemplate={(t) => addTemplate(t) !== null}
+              onUpdateTemplate={updateTemplate}
+              onDeleteTemplate={deleteTemplate}
+              isTemplateNameDuplicate={isTemplateNameDuplicate}
               countSamplesByType={countSamplesByType}
               countSamplesByStaining={countSamplesByStaining}
               bulkUpdateSampleType={bulkUpdateSampleType}

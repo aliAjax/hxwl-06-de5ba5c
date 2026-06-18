@@ -3356,3 +3356,246 @@ select {
     font-size: 20px;
   }
 }
+
+.admin-template-panel {
+  margin-top: 24px;
+}
+
+.admin-template-list {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  margin-top: 16px;
+}
+
+.admin-template-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 16px 18px;
+  background: #ffffff;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  transition: all 0.2s ease;
+}
+
+.admin-template-item:hover {
+  border-color: color-mix(in srgb, var(--accent) 30%, var(--border));
+  box-shadow: 0 2px 8px rgba(67, 56, 202, 0.06);
+}
+
+.admin-template-header {
+  display: flex;
+  align-items: flex-start;
+  gap: 14px;
+  flex: 1;
+  min-width: 0;
+}
+
+.admin-template-icon {
+  width: 48px;
+  height: 48px;
+  border-radius: 12px;
+  background: linear-gradient(135deg, color-mix(in srgb, var(--accent) 12%, #ffffff), color-mix(in srgb, var(--accent) 6%, #ffffff));
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 24px;
+  flex-shrink: 0;
+  border: 1px solid color-mix(in srgb, var(--accent) 15%, var(--border));
+}
+
+.admin-template-main {
+  flex: 1;
+  min-width: 0;
+}
+
+.admin-template-title-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 4px;
+}
+
+.admin-template-title-row h4 {
+  margin: 0;
+  font-size: 15px;
+  font-weight: 600;
+  color: #172033;
+}
+
+.admin-template-desc {
+  margin: 0 0 8px;
+  font-size: 13px;
+  color: #64748b;
+  line-height: 1.5;
+}
+
+.admin-template-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.template-tag {
+  display: inline-flex;
+  align-items: center;
+  padding: 3px 10px;
+  font-size: 12px;
+  font-weight: 500;
+  color: #475569;
+  background: #f1f5f9;
+  border-radius: 999px;
+  line-height: 1.6;
+}
+
+.template-tag.structure-tag {
+  background: color-mix(in srgb, #0d9488 10%, #ffffff);
+  color: #0f766e;
+}
+
+.template-form {
+  margin: 16px 0 8px;
+  padding: 20px;
+  background: linear-gradient(180deg, #fafbff 0%, #ffffff 100%);
+  border: 1px solid color-mix(in srgb, var(--accent) 15%, var(--border));
+  border-radius: 12px;
+}
+
+.template-edit-form {
+  margin: 0;
+  padding: 16px;
+  background: #ffffff;
+  border: 1px dashed color-mix(in srgb, var(--accent) 30%, var(--border));
+  width: 100%;
+}
+
+.template-form-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+  gap: 14px;
+}
+
+.template-form label {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.template-form label > span {
+  font-size: 13px;
+  font-weight: 500;
+  color: #475569;
+}
+
+.template-form input,
+.template-form select,
+.template-form textarea {
+  width: 100%;
+  padding: 9px 12px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  font-size: 14px;
+  background: #ffffff;
+  color: #172033;
+  transition: all 0.2s ease;
+  box-sizing: border-box;
+  font-family: inherit;
+}
+
+.template-form input:focus,
+.template-form select:focus,
+.template-form textarea:focus {
+  outline: none;
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 15%, transparent);
+}
+
+.template-form textarea {
+  resize: vertical;
+  min-height: 60px;
+}
+
+.template-form-full {
+  grid-column: 1 / -1;
+}
+
+.template-form-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+  margin-top: 18px;
+  padding-top: 16px;
+  border-top: 1px solid var(--border);
+}
+
+.icon-picker {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  padding: 6px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: #ffffff;
+}
+
+.icon-option {
+  width: 36px;
+  height: 36px;
+  border: 1px solid transparent;
+  border-radius: 8px;
+  background: #f8fafc;
+  font-size: 18px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.15s ease;
+  padding: 0;
+}
+
+.icon-option:hover {
+  background: #f1f5f9;
+  border-color: var(--border);
+}
+
+.icon-option.icon-selected {
+  background: color-mix(in srgb, var(--accent) 12%, #ffffff);
+  border-color: var(--accent);
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--accent) 20%, transparent);
+}
+
+.template-form label.field-error input,
+.template-form label.field-error select,
+.template-form label.field-error textarea {
+  border-color: #e11d48;
+  background: color-mix(in srgb, #e11d48 3%, #ffffff);
+}
+
+.template-form .error-text {
+  font-size: 12px;
+  color: #e11d48;
+  margin-top: 2px;
+}
+
+@media (max-width: 640px) {
+  .admin-template-item {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .admin-template-header {
+    flex-direction: column;
+    align-items: center;
+    text-align: center;
+  }
+
+  .template-form-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .admin-item-actions {
+    justify-content: center;
+  }
+}
