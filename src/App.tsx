@@ -1,4 +1,4 @@
-import React, { useState, useMemo, ChangeEvent, FormEvent } from "react";
+import React, { useState, useMemo, useCallback, ChangeEvent, FormEvent } from "react";
 import "./styles.css";
 import type {
   Sample,

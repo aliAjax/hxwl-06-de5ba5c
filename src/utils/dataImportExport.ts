@@ -563,9 +563,9 @@ export const executeImport = async (
       async (items) => {
         if (items.length > 0) {
           const existing = getStoredCategories();
-          const existingIds = new Set(existing.map(c => c.id));
+          const importIds = new Set(items.map(i => i.id));
           const merged = [
-            ...existing.filter(c => !existingIds.has(c.id) || !items.find(i => i.id === c.id)),
+            ...existing.filter(c => !importIds.has(c.id)),
             ...items as SampleCategory[]
           ];
           window.localStorage.setItem(STORAGE_KEY_CATEGORIES, JSON.stringify(merged));
@@ -580,9 +580,9 @@ export const executeImport = async (
       async (items) => {
         if (items.length > 0) {
           const existing = getStoredStainingMethods();
-          const existingIds = new Set(existing.map(s => s.id));
+          const importIds = new Set(items.map(i => i.id));
           const merged = [
-            ...existing.filter(s => !existingIds.has(s.id) || !items.find(i => i.id === s.id)),
+            ...existing.filter(s => !importIds.has(s.id)),
             ...items as StainingMethod[]
           ];
           window.localStorage.setItem(STORAGE_KEY_STAINING, JSON.stringify(merged));
@@ -597,9 +597,9 @@ export const executeImport = async (
       async (items) => {
         if (items.length > 0) {
           const existing = getStoredTemplates();
-          const existingIds = new Set(existing.map(t => t.id));
+          const importIds = new Set(items.map(i => i.id));
           const merged = [
-            ...existing.filter(t => !existingIds.has(t.id) || !items.find(i => i.id === t.id)),
+            ...existing.filter(t => !importIds.has(t.id)),
             ...items as ObservationTemplate[]
           ];
           window.localStorage.setItem(STORAGE_KEY_TEMPLATES, JSON.stringify(merged));
