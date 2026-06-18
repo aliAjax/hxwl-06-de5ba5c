@@ -62,8 +62,8 @@ export function ImportPreviewDialog({
   };
 
   const getItemName = <T extends { id: string; name?: string; sampleName?: string }>(item: T): string => {
-    if ("sampleName" in item) return (item as Sample).sampleName;
-    if ("name" in item) return (item as { name: string }).name;
+    if ("sampleName" in item && item.sampleName) return item.sampleName;
+    if ("name" in item && item.name) return item.name;
     return item.id;
   };
 

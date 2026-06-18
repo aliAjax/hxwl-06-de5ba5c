@@ -1,6 +1,7 @@
 import type {
   QualityIssue,
   QualityCheckResult,
+  QualityOverallStatus,
   Sample,
   SampleTypeMagnificationRule,
   MagnificationRecord,
