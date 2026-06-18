@@ -14,7 +14,7 @@ import {
 } from "../constants";
 import { runQualityCheck, getMagnificationCoverage, getSampleQualityOverview } from "../utils/qualityCheck";
 import { formatDate, groupMagnifications } from "../utils/format";
-import { canModifySample, canModifyMagnification, canReview } from "../utils/permissions";
+import { canReview } from "../utils/permissions";
 import { MetricCard } from "./MetricCard";
 import { QualityCheckPanel } from "./QualityCheckPanel";
 import { QualityBadge } from "./QualityBadge";
@@ -40,13 +40,13 @@ export function SampleDetail({
   onDeleteMagnification,
   onToggleQualified,
   currentRole,
-  currentUserName,
+  currentUserName: _currentUserName,
   currentUserId
 }: SampleDetailProps) {
   const isOwner = sample.studentId === currentUserId;
   const canEdit = currentRole === "student" && isOwner;
   const canReviewRecord = canReview(currentRole);
-  const isAdmin = currentRole === "admin";
+  const _isAdmin = currentRole === "admin";
   const [showForm, setShowForm] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [magFormData, setMagFormData] = useState<MagnificationFormData>(EMPTY_MAGNIFICATION_FORM);

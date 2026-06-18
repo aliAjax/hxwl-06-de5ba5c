@@ -33,8 +33,23 @@ async function checkServerReady(url, timeout = 30000) {
   return false;
 }
 
+async function stopServer(childProcess) {
+  if (!childProcess || childProcess.exitCode !== null) return;
+  log("正在停止预览服务器...");
+  childProcess.kill("SIGTERM");
+  await sleep(2000);
+  if (childProcess.exitCode === null) {
+    childProcess.kill("SIGKILL");
+    await sleep(500);
+  }
+  log("预览服务器已停止");
+}
+
 async function main() {
   log("开始冒烟测试...");
+
+  let exitCode = 0;
+  let previewProcess = null;
 
   log("步骤 1/4: 构建生产版本...");
   try {
@@ -45,11 +60,12 @@ async function main() {
     });
   } catch (error) {
     log("构建失败！");
-    process.exit(1);
+    process.exitCode = 1;
+    return;
   }
 
   log("步骤 2/4: 启动预览服务器...");
-  const previewProcess = spawn(
+  previewProcess = spawn(
     "npx",
     ["vite", "preview", "--host", PREVIEW_HOST, "--port", String(PREVIEW_PORT)],
     {
@@ -74,7 +90,8 @@ async function main() {
 
     if (!isReady) {
       log("服务器启动超时！");
-      process.exit(1);
+      exitCode = 1;
+      return;
     }
     log("服务器已就绪");
 
@@ -83,20 +100,23 @@ async function main() {
     const response = await fetch(serverUrl);
     if (!response.ok) {
       log(`首页访问失败: HTTP ${response.status}`);
-      process.exit(1);
+      exitCode = 1;
+      return;
     }
     log(`首页访问成功: HTTP ${response.status}`);
 
     const html = await response.text();
     if (!html.includes("<div id=\"root\"></div>")) {
       log("页面未包含 root 挂载点");
-      process.exit(1);
+      exitCode = 1;
+      return;
     }
     log("页面包含 root 挂载点");
 
     if (!html.includes("<script")) {
       log("页面未包含 JavaScript 脚本");
-      process.exit(1);
+      exitCode = 1;
+      return;
     }
     log("页面包含 JavaScript 脚本");
 
@@ -108,25 +128,22 @@ async function main() {
       const cssResponse = await fetch(cssUrl);
       if (!cssResponse.ok) {
         log(`CSS 资源加载失败: HTTP ${cssResponse.status}`);
-        process.exit(1);
+        exitCode = 1;
+        return;
       }
       log("CSS 资源加载成功");
     }
 
     log("");
     log("✅ 冒烟测试全部通过！");
-    process.exit(0);
   } catch (error) {
     log(`冒烟测试失败: ${error.message}`);
-    process.exit(1);
+    exitCode = 1;
   } finally {
-    log("正在停止预览服务器...");
-    previewProcess.kill("SIGTERM");
-    await sleep(1000);
-    if (!previewProcess.killed) {
-      previewProcess.kill("SIGKILL");
-    }
+    await stopServer(previewProcess);
   }
+
+  process.exitCode = exitCode;
 }
 
 main();

@@ -12,7 +12,7 @@ function loadSession(): { role: Role; userId: string } | null {
     if (role && userId) {
       return { role, userId };
     }
-  } catch {}
+  } catch { /* localStorage unavailable */ }
   return null;
 }
 
@@ -20,14 +20,14 @@ function saveSession(role: Role, userId: string): void {
   try {
     localStorage.setItem(SESSION_KEY_ROLE, role);
     localStorage.setItem(SESSION_KEY_USER_ID, userId);
-  } catch {}
+  } catch { /* localStorage unavailable */ }
 }
 
 function clearSession(): void {
   try {
     localStorage.removeItem(SESSION_KEY_ROLE);
     localStorage.removeItem(SESSION_KEY_USER_ID);
-  } catch {}
+  } catch { /* localStorage unavailable */ }
 }
 
 interface UseSessionReturn {

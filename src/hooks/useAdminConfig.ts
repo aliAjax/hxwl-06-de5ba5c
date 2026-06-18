@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useCallback } from "react";
 import type { SampleCategory, StainingMethod } from "../types";
 import {
   defaultSampleCategories,
@@ -34,39 +34,17 @@ interface UseAdminConfigReturn {
 }
 
 export function useAdminConfig(): UseAdminConfigReturn {
-  const [sampleCategories, setSampleCategories] = useState<SampleCategory[]>(defaultSampleCategories);
-  const [stainingMethods, setStainingMethods] = useState<StainingMethod[]>(defaultStainingMethods);
-  const [isConfigLoaded, setIsConfigLoaded] = useState(false);
-
-  useEffect(() => {
-    if (typeof window === "undefined" || !window.localStorage) {
-      setIsConfigLoaded(true);
-      return;
-    }
-
-    try {
-      const rawCategories = window.localStorage.getItem(STORAGE_KEY_CATEGORIES);
-      const rawStaining = window.localStorage.getItem(STORAGE_KEY_STAINING);
-
-      if (rawCategories === null) {
-        setSampleCategories(defaultSampleCategories);
-      } else {
-        const savedCategories = safeParseJSON<SampleCategory[]>(rawCategories, []);
-        setSampleCategories(savedCategories);
-      }
-
-      if (rawStaining === null) {
-        setStainingMethods(defaultStainingMethods);
-      } else {
-        const savedStaining = safeParseJSON<StainingMethod[]>(rawStaining, []);
-        setStainingMethods(savedStaining);
-      }
-    } catch (e) {
-      console.warn("读取本地配置失败，使用默认值：", e);
-    } finally {
-      setIsConfigLoaded(true);
-    }
-  }, []);
+  const [sampleCategories, setSampleCategories] = useState<SampleCategory[]>(() => {
+    if (typeof window === "undefined" || !window.localStorage) return defaultSampleCategories;
+    const raw = window.localStorage.getItem(STORAGE_KEY_CATEGORIES);
+    return raw ? safeParseJSON<SampleCategory[]>(raw, defaultSampleCategories) : defaultSampleCategories;
+  });
+  const [stainingMethods, setStainingMethods] = useState<StainingMethod[]>(() => {
+    if (typeof window === "undefined" || !window.localStorage) return defaultStainingMethods;
+    const raw = window.localStorage.getItem(STORAGE_KEY_STAINING);
+    return raw ? safeParseJSON<StainingMethod[]>(raw, defaultStainingMethods) : defaultStainingMethods;
+  });
+  const [isConfigLoaded] = useState(true);
 
   const persistCategories = useCallback((categories: SampleCategory[]) => {
     try {

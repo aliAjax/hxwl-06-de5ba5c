@@ -169,7 +169,7 @@ export function ImportPreviewDialog({
   };
 
   const hasConflicts = previewResult.summary.some(s => s.status === "conflict" && s.count > 0);
-  const hasInvalid = previewResult.summary.some(s => s.status === "invalid" && s.count > 0);
+  const _hasInvalid = previewResult.summary.some(s => s.status === "invalid" && s.count > 0);
 
   return (
     <div className="import-dialog-overlay" onClick={onCancel}>

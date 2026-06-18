@@ -42,14 +42,6 @@ export function BatchReviewWorkbench({
   onAddSampleToBatch,
   onRemoveSampleFromBatch
 }: BatchReviewWorkbenchProps) {
-  if (!canManageBatches(currentRole)) {
-    return (
-      <div className="permission-notice">
-        <span className="permission-notice-icon">🔒</span>
-        <p>权限不足：仅教师可以管理批次</p>
-      </div>
-    );
-  }
   const [selectedBatchId, setSelectedBatchId] = useState<string | null>(null);
   const [filterSampleType, setFilterSampleType] = useState<string>("all");
   const [filterStudentId, setFilterStudentId] = useState<string>("all");
@@ -143,6 +135,15 @@ export function BatchReviewWorkbench({
       String(batchTotalFields)
     ];
   }, [batches, batchSamples]);
+
+  if (!canManageBatches(currentRole)) {
+    return (
+      <div className="permission-notice">
+        <span className="permission-notice-icon">🔒</span>
+        <p>权限不足：仅教师可以管理批次</p>
+      </div>
+    );
+  }
 
   const batchMetricsLabels = ["全部批次", "进行中", "批次样本", "批次视野"];
 

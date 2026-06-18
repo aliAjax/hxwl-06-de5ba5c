@@ -1,4 +1,4 @@
-import type { Role, User, Sample, MagnificationRecord } from "../types";
+import type { Role, Sample, MagnificationRecord } from "../types";
 
 export function canSubmitSample(role: Role): boolean {
   return role === "student";
@@ -31,11 +31,11 @@ export function canManageConfig(role: Role): boolean {
   return role === "admin";
 }
 
-export function canImportExport(role: Role): boolean {
+export function canImportExport(_role: Role): boolean {
   return false;
 }
 
-export function canExportReport(role: Role): boolean {
+export function canExportReport(_role: Role): boolean {
   return false;
 }
 

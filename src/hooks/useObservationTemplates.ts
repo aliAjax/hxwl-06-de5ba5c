@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useCallback } from "react";
 import type { ObservationTemplate } from "../types";
 import { defaultObservationTemplates } from "../db";
 
@@ -25,8 +25,13 @@ interface UseObservationTemplatesReturn {
 }
 
 export function useObservationTemplates(): UseObservationTemplatesReturn {
-  const [templates, setTemplates] = useState<ObservationTemplate[]>(defaultObservationTemplates);
-  const [isTemplatesLoaded, setIsTemplatesLoaded] = useState(false);
+  const [templates, setTemplates] = useState<ObservationTemplate[]>(() => {
+    if (typeof window === "undefined" || !window.localStorage) return defaultObservationTemplates;
+    const raw = window.localStorage.getItem(STORAGE_KEY_TEMPLATES);
+    if (raw === null) return defaultObservationTemplates;
+    return safeParseJSON<ObservationTemplate[]>(raw, defaultObservationTemplates);
+  });
+  const [isTemplatesLoaded] = useState(true);
 
   const persistTemplates = useCallback((templateList: ObservationTemplate[]) => {
     try {
@@ -35,29 +40,6 @@ export function useObservationTemplates(): UseObservationTemplatesReturn {
       console.warn("保存模板配置失败：", e);
     }
   }, []);
-
-  useEffect(() => {
-    if (typeof window === "undefined" || !window.localStorage) {
-      setIsTemplatesLoaded(true);
-      return;
-    }
-
-    try {
-      const rawValue = window.localStorage.getItem(STORAGE_KEY_TEMPLATES);
-      const isFirstLoad = rawValue === null;
-
-      if (isFirstLoad) {
-        persistTemplates(defaultObservationTemplates);
-      } else {
-        const savedTemplates = safeParseJSON<ObservationTemplate[]>(rawValue, []);
-        setTemplates(savedTemplates);
-      }
-    } catch (e) {
-      console.warn("读取本地模板配置失败，使用默认值：", e);
-    } finally {
-      setIsTemplatesLoaded(true);
-    }
-  }, [persistTemplates]);
 
   const isTemplateNameDuplicate = useCallback((name: string, excludeId?: string): boolean => {
     return templates.some(t => t.name === name && t.id !== excludeId);

@@ -223,7 +223,7 @@ export const previewImportData = async (
   let parsedData: unknown;
   try {
     parsedData = JSON.parse(fileContent);
-  } catch (e) {
+  } catch {
     return {
       isValid: false,
       version: "unknown",

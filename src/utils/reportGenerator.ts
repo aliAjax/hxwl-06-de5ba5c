@@ -214,7 +214,7 @@ export const generateReportPlainText = (report: ReportData): string => {
         }`);
         if (magSum.descriptions.length > 0) {
           lines.push("    典型描述:");
-          magSum.descriptions.slice(0, 3).forEach((desc, i) => {
+          magSum.descriptions.slice(0, 3).forEach((desc) => {
             lines.push(`      · ${desc}`);
           });
           if (magSum.descriptions.length > 3) {

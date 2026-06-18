@@ -61,7 +61,6 @@ function App() {
     updateMagnification,
     deleteMagnification,
     toggleQualified,
-    clearAllRecords,
     bulkUpdateSampleType,
     bulkUpdateStainingMethod,
     countSamplesByType,
@@ -152,7 +151,7 @@ function App() {
     [setCurrentUserBase, viewNavigation, studentEntry, teacherWorkbench]
   );
 
-  const metrics = useMemo(() => {
+  const _metrics = useMemo(() => {
     const uniqueSamples = samples.length;
     const totalFields = samples.reduce(
       (sum, sample) => sum + sample.magnifications.length,
@@ -173,7 +172,7 @@ function App() {
     ];
   }, [samples]);
 
-  const magnificationStats = useMemo(() => {
+  const _magnificationStats = useMemo(() => {
     const stats = new Map<string, number>();
     MAGNIFICATION_GROUPS.forEach(group => stats.set(group, 0));
     samples.forEach(sample => {

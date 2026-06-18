@@ -7,8 +7,7 @@ import type {
   SampleFormData,
   FormErrors,
   ObservationTemplate,
-  QualityCheckResult,
-  QualityOverallStatus
+  QualityCheckResult
 } from "../types";
 import {
   MAGNIFICATION_GROUPS,

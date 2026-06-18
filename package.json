@@ -5,13 +5,15 @@
     "build": "vite build",
     "preview": "vite preview --host 0.0.0.0 --port 5106",
     "typecheck": "tsc --noEmit",
+    "lint": "eslint src/",
+    "lint:fix": "eslint src/ --fix",
     "test": "vitest run",
     "test:watch": "vitest",
     "test:ui": "vitest --ui",
     "test:coverage": "vitest run --coverage",
     "smoke": "node scripts/smoke-test.mjs",
     "preview:ci": "vite preview --host 0.0.0.0 --port 4173",
-    "quality": "npm run typecheck && npm run test && npm run build"
+    "quality": "npm run lint && npm run typecheck && npm run test && npm run build"
   },
   "dependencies": {
     "@vitejs/plugin-react": "^5.0.0",
@@ -21,6 +23,7 @@
     "vite": "^7.0.0"
   },
   "devDependencies": {
+    "@eslint/js": "^10.0.1",
     "@testing-library/jest-dom": "^6.9.1",
     "@testing-library/react": "^16.3.2",
     "@testing-library/user-event": "^14.6.1",
@@ -28,7 +31,11 @@
     "@types/react-dom": "^19.2.3",
     "@vitest/coverage-v8": "^2.1.9",
     "@vitest/ui": "^2.1.9",
+    "eslint": "^10.5.0",
+    "eslint-plugin-react-hooks": "^7.1.1",
+    "eslint-plugin-react-refresh": "^0.5.3",
     "jsdom": "^29.1.1",
+    "typescript-eslint": "^8.61.1",
     "vitest": "^2.1.9"
   }
 }

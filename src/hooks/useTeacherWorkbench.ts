@@ -1,5 +1,5 @@
 import { useState, useCallback } from "react";
-import type { Role, User, Sample, ObservationBatch } from "../types";
+import type { Role, User } from "../types";
 import {
   canReview,
   canManageBatches,

@@ -21,14 +21,6 @@ export function TeacherWorkbench({
   users,
   onSampleClick
 }: TeacherWorkbenchProps) {
-  if (!canReview(currentRole)) {
-    return (
-      <div className="permission-notice">
-        <span className="permission-notice-icon">🔒</span>
-        <p>权限不足：仅教师可以访问此工作台</p>
-      </div>
-    );
-  }
   const [selectedStudentId, setSelectedStudentId] = useState<string>("all");
 
   const students = users.filter(u => u.role === "student");
@@ -53,6 +45,15 @@ export function TeacherWorkbench({
       String(qualifiedFields)
     ];
   }, [samples, students]);
+
+  if (!canReview(currentRole)) {
+    return (
+      <div className="permission-notice">
+        <span className="permission-notice-icon">🔒</span>
+        <p>权限不足：仅教师可以访问此工作台</p>
+      </div>
+    );
+  }
 
   const teacherMetricsLabels = ["全班学生", "样本总数", "视野记录", "已合格"];
 

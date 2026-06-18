@@ -1,7 +1,6 @@
 import { describe, it, expect } from "vitest";
 import { render, screen } from "../test/testUtils";
 import { QualityBadge } from "./QualityBadge";
-import type { QualityOverallStatus } from "../types";
 
 describe("QualityBadge", () => {
   it("pass 状态应显示质量达标", () => {

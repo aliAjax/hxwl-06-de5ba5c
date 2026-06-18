@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import type { Role, Sample, MagnificationRecord } from "../types";
+import type { Sample, MagnificationRecord } from "../types";
 import {
   canSubmitSample,
   canModifySample,

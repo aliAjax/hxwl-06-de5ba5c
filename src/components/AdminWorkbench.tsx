@@ -71,14 +71,6 @@ export function AdminWorkbench({
   bulkUpdateSampleType,
   bulkUpdateStainingMethod
 }: AdminWorkbenchProps) {
-  if (!canManageConfig(currentRole)) {
-    return (
-      <div className="permission-notice">
-        <span className="permission-notice-icon">🔒</span>
-        <p>权限不足：仅管理员可以维护系统配置</p>
-      </div>
-    );
-  }
   const [newCategoryName, setNewCategoryName] = useState("");
   const [newStainingName, setNewStainingName] = useState("");
   const [addError, setAddError] = useState<{ category?: string; staining?: string }>({});
@@ -107,6 +99,15 @@ export function AdminWorkbench({
   const [editTemplateError, setEditTemplateError] = useState<Partial<Record<keyof TemplateFormData, string>>>({});
 
   const [templateDeleteConfirm, setTemplateDeleteConfirm] = useState<ObservationTemplate | null>(null);
+
+  if (!canManageConfig(currentRole)) {
+    return (
+      <div className="permission-notice">
+        <span className="permission-notice-icon">🔒</span>
+        <p>权限不足：仅管理员可以维护系统配置</p>
+      </div>
+    );
+  }
 
   const handleAddCategory = (e: FormEvent) => {
     e.preventDefault();
