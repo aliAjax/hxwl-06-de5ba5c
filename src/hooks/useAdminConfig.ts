@@ -44,19 +44,20 @@ export function useAdminConfig(): UseAdminConfigReturn {
     }
 
     try {
-      const savedCategories = safeParseJSON<SampleCategory[]>(
-        window.localStorage.getItem(STORAGE_KEY_CATEGORIES),
-        defaultSampleCategories
-      );
-      const savedStaining = safeParseJSON<StainingMethod[]>(
-        window.localStorage.getItem(STORAGE_KEY_STAINING),
-        defaultStainingMethods
-      );
+      const rawCategories = window.localStorage.getItem(STORAGE_KEY_CATEGORIES);
+      const rawStaining = window.localStorage.getItem(STORAGE_KEY_STAINING);
 
-      if (savedCategories && savedCategories.length > 0) {
+      if (rawCategories === null) {
+        setSampleCategories(defaultSampleCategories);
+      } else {
+        const savedCategories = safeParseJSON<SampleCategory[]>(rawCategories, []);
         setSampleCategories(savedCategories);
       }
-      if (savedStaining && savedStaining.length > 0) {
+
+      if (rawStaining === null) {
+        setStainingMethods(defaultStainingMethods);
+      } else {
+        const savedStaining = safeParseJSON<StainingMethod[]>(rawStaining, []);
         setStainingMethods(savedStaining);
       }
     } catch (e) {

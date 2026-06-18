@@ -42,15 +42,14 @@ export function useObservationTemplates(): UseObservationTemplatesReturn {
     }
 
     try {
-      const savedTemplates = safeParseJSON<ObservationTemplate[]>(
-        window.localStorage.getItem(STORAGE_KEY_TEMPLATES),
-        []
-      );
+      const rawValue = window.localStorage.getItem(STORAGE_KEY_TEMPLATES);
+      const isFirstLoad = rawValue === null;
 
-      if (savedTemplates && savedTemplates.length > 0) {
-        setTemplates(savedTemplates);
-      } else {
+      if (isFirstLoad) {
         persistTemplates(defaultObservationTemplates);
+      } else {
+        const savedTemplates = safeParseJSON<ObservationTemplate[]>(rawValue, []);
+        setTemplates(savedTemplates);
       }
     } catch (e) {
       console.warn("读取本地模板配置失败，使用默认值：", e);
