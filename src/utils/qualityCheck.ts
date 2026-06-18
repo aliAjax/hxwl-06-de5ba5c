@@ -4,7 +4,8 @@ import type {
   Sample,
   SampleTypeMagnificationRule,
   MagnificationRecord,
-  MagnificationCoverage
+  MagnificationCoverage,
+  SampleQualityOverview
 } from "../types";
 import {
   SAMPLE_TYPE_MAGNIFICATION_RULES,
@@ -228,5 +229,67 @@ export const getMagnificationCoverage = (
     nonRecommended,
     coverageRate,
     isComplete
+  };
+};
+
+export const getSampleQualityOverview = (
+  sample: Sample
+): SampleQualityOverview => {
+  const coverage = getMagnificationCoverage(sample);
+  const missingMagnifications = coverage.missing;
+  const nonRecommendedMagnifications = coverage.nonRecommended;
+
+  let emptyDescriptionCount = 0;
+  let shortDescriptionCount = 0;
+  let pendingReviewCount = 0;
+
+  sample.magnifications.forEach((rec: MagnificationRecord) => {
+    const desc = rec.fieldDescription?.trim() ?? "";
+    if (!desc) {
+      emptyDescriptionCount++;
+    } else if (desc.length < MIN_FIELD_DESCRIPTION_LENGTH) {
+      shortDescriptionCount++;
+    }
+
+    if (rec.isQualified === undefined) {
+      pendingReviewCount++;
+    }
+  });
+
+  const totalRecords = sample.magnifications.length;
+
+  let overallStatus: QualityOverallStatus = "pass";
+  const hasErrors =
+    missingMagnifications.length > 0 ||
+    emptyDescriptionCount > 0;
+  const hasWarnings =
+    shortDescriptionCount > 0 ||
+    nonRecommendedMagnifications.length > 0 ||
+    pendingReviewCount > 0;
+
+  if (hasErrors) {
+    overallStatus = "error";
+  } else if (hasWarnings) {
+    overallStatus = "warning";
+  }
+
+  const hasIssues =
+    missingMagnifications.length > 0 ||
+    emptyDescriptionCount > 0 ||
+    shortDescriptionCount > 0 ||
+    nonRecommendedMagnifications.length > 0 ||
+    pendingReviewCount > 0;
+
+  return {
+    missingMagnifications,
+    missingMagnificationCount: missingMagnifications.length,
+    emptyDescriptionCount,
+    shortDescriptionCount,
+    nonRecommendedMagnifications,
+    nonRecommendedMagnificationCount: nonRecommendedMagnifications.length,
+    pendingReviewCount,
+    totalRecords,
+    overallStatus,
+    hasIssues
   };
 };

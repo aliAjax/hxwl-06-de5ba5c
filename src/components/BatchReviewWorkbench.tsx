@@ -5,7 +5,9 @@ import type {
   ObservationBatch,
   ReviewFilterStatus
 } from "../types";
+import { getSampleQualityOverview } from "../utils/qualityCheck";
 import { MetricCard } from "./MetricCard";
+import { QualityBadge } from "./QualityBadge";
 
 interface BatchReviewWorkbenchProps {
   currentUser: User;
@@ -104,10 +106,10 @@ export function BatchReviewWorkbench({
     }
     if (filterQuality !== "all") {
       result = result.filter(s => {
-        const mags = s.magnifications;
-        if (filterQuality === "pending") return mags.some(m => m.isQualified === undefined);
-        if (filterQuality === "pass") return mags.every(m => m.isQualified === true);
-        if (filterQuality === "fail") return mags.some(m => m.isQualified === false);
+        const quality = getSampleQualityOverview(s);
+        if (filterQuality === "pending") return quality.pendingReviewCount > 0;
+        if (filterQuality === "pass") return quality.overallStatus === "pass";
+        if (filterQuality === "fail") return quality.overallStatus === "error";
         return true;
       });
     }
@@ -380,6 +382,7 @@ export function BatchReviewWorkbench({
           ) : (
             <div className="batch-review-list">
               {filteredSamples.map(sample => {
+                const qualityOverview = getSampleQualityOverview(sample);
                 const pendingCount = sample.magnifications.filter(m => m.isQualified === undefined).length;
                 const passCount = sample.magnifications.filter(m => m.isQualified === true).length;
                 const failCount = sample.magnifications.filter(m => m.isQualified === false).length;
@@ -394,6 +397,9 @@ export function BatchReviewWorkbench({
                           onClick={() => onSampleClick(sample)}
                         >
                           {sample.sampleName}
+                          <span style={{ marginLeft: "8px" }}>
+                            <QualityBadge status={qualityOverview.overallStatus} />
+                          </span>
                         </h4>
                         <span className="batch-student-tag">
                           {student?.name || sample.studentName}
@@ -402,6 +408,20 @@ export function BatchReviewWorkbench({
                       <p className="batch-review-meta">
                         {sample.sampleType} · {sample.stainingMethod} · {sample.magnifications.length} 条视野
                       </p>
+                      <div className="sample-quality-summary">
+                        {qualityOverview.missingMagnificationCount > 0 && (
+                          <span className="quality-summary-tag error-tag">缺失倍率 {qualityOverview.missingMagnificationCount}</span>
+                        )}
+                        {qualityOverview.emptyDescriptionCount > 0 && (
+                          <span className="quality-summary-tag error-tag">空描述 {qualityOverview.emptyDescriptionCount}</span>
+                        )}
+                        {qualityOverview.shortDescriptionCount > 0 && (
+                          <span className="quality-summary-tag warning-tag">过短描述 {qualityOverview.shortDescriptionCount}</span>
+                        )}
+                        {qualityOverview.nonRecommendedMagnificationCount > 0 && (
+                          <span className="quality-summary-tag warning-tag">非推荐倍率 {qualityOverview.nonRecommendedMagnificationCount}</span>
+                        )}
+                      </div>
                       <div className="batch-review-status-chips">
                         {passCount > 0 && (
                           <span className="record-mag-chip pass-chip">合格 {passCount}</span>

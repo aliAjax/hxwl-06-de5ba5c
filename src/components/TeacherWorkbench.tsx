@@ -1,6 +1,8 @@
 import React, { useState, useMemo } from "react";
 import type { User, Sample } from "../types";
+import { getSampleQualityOverview } from "../utils/qualityCheck";
 import { MetricCard } from "./MetricCard";
+import { QualityBadge } from "./QualityBadge";
 
 interface TeacherWorkbenchProps {
   currentUser: User;
@@ -132,6 +134,7 @@ export function TeacherWorkbench({
                     <p className="empty-description">该学生暂无记录</p>
                   ) : (
                     studentSamples.map(sample => {
+                      const qualityOverview = getSampleQualityOverview(sample);
                       const pendingRecords = sample.magnifications.filter(r => r.isQualified === undefined);
 
                       return (
@@ -140,8 +143,27 @@ export function TeacherWorkbench({
                             className="teacher-sample-info clickable"
                             onClick={() => onSampleClick(sample)}
                           >
-                            <h4>{sample.sampleName}</h4>
+                            <h4>
+                              {sample.sampleName}
+                              <span style={{ marginLeft: "8px" }}>
+                                <QualityBadge status={qualityOverview.overallStatus} />
+                              </span>
+                            </h4>
                             <p>{sample.sampleType} · {sample.stainingMethod}</p>
+                            <div className="sample-quality-summary">
+                              {qualityOverview.missingMagnificationCount > 0 && (
+                                <span className="quality-summary-tag error-tag">缺失倍率 {qualityOverview.missingMagnificationCount}</span>
+                              )}
+                              {qualityOverview.emptyDescriptionCount > 0 && (
+                                <span className="quality-summary-tag error-tag">空描述 {qualityOverview.emptyDescriptionCount}</span>
+                              )}
+                              {qualityOverview.shortDescriptionCount > 0 && (
+                                <span className="quality-summary-tag warning-tag">过短描述 {qualityOverview.shortDescriptionCount}</span>
+                              )}
+                              {qualityOverview.nonRecommendedMagnificationCount > 0 && (
+                                <span className="quality-summary-tag warning-tag">非推荐倍率 {qualityOverview.nonRecommendedMagnificationCount}</span>
+                              )}
+                            </div>
                             <div className="record-mag-chips">
                               {sample.magnifications.slice(0, 3).map(rec => (
                                 <span

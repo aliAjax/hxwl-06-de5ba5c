@@ -1,5 +1,6 @@
 import type { Sample, SampleTypeReport, ReportData } from "../types";
-import { SAMPLE_TYPE_MAGNIFICATION_RULES } from "../constants";
+import { SAMPLE_TYPE_MAGNIFICATION_RULES, MIN_FIELD_DESCRIPTION_LENGTH } from "../constants";
+import { getSampleQualityOverview } from "./qualityCheck";
 
 const parseMagnificationValue = (magnification: string): number => {
   const value = parseInt(magnification, 10);
@@ -32,6 +33,9 @@ export const generateObservationReport = (samples: Sample[]): ReportData => {
       if (sample.stainingMethod?.trim()) {
         stainingMethodsSet.add(sample.stainingMethod);
       }
+      
+      const qualityOverview = getSampleQualityOverview(sample);
+      
       if (!sample.stainingMethod?.trim()) {
         missingItems.push(`${sample.sampleName}: 缺失染色方式`);
       }
@@ -40,6 +44,32 @@ export const generateObservationReport = (samples: Sample[]): ReportData => {
       }
       if (sample.magnifications.length === 0) {
         missingItems.push(`${sample.sampleName || "未知样本"}: 无任何视野记录`);
+      }
+      
+      if (qualityOverview.missingMagnificationCount > 0) {
+        missingItems.push(
+          `${sample.sampleName}: 缺失推荐倍率 ${qualityOverview.missingMagnifications.join("、")}`
+        );
+      }
+      if (qualityOverview.emptyDescriptionCount > 0) {
+        missingItems.push(
+          `${sample.sampleName}: ${qualityOverview.emptyDescriptionCount} 条记录空描述`
+        );
+      }
+      if (qualityOverview.shortDescriptionCount > 0) {
+        missingItems.push(
+          `${sample.sampleName}: ${qualityOverview.shortDescriptionCount} 条记录描述过短（少于 ${MIN_FIELD_DESCRIPTION_LENGTH} 字）`
+        );
+      }
+      if (qualityOverview.nonRecommendedMagnificationCount > 0) {
+        missingItems.push(
+          `${sample.sampleName}: 使用了非推荐倍率 ${qualityOverview.nonRecommendedMagnifications.join("、")}`
+        );
+      }
+      if (qualityOverview.pendingReviewCount > 0) {
+        missingItems.push(
+          `${sample.sampleName}: ${qualityOverview.pendingReviewCount} 条记录待评阅`
+        );
       }
 
       sample.magnifications.forEach(rec => {
@@ -64,9 +94,6 @@ export const generateObservationReport = (samples: Sample[]): ReportData => {
         }
         if (!rec.observedStructure?.trim()) {
           missingItems.push(`${sample.sampleName} @ ${mag}: 缺失重点结构`);
-        }
-        if (!rec.fieldDescription?.trim()) {
-          missingItems.push(`${sample.sampleName} @ ${mag}: 缺失视野描述`);
         }
       });
     });
@@ -212,15 +239,37 @@ export const generateReportPlainText = (report: ReportData): string => {
     lines.push("  样本清单:");
     typeReport.samples.forEach((sample, sIdx) => {
       const displayStudent = sample.studentName || sample.studentId || "未知学生";
+      const qualityOverview = getSampleQualityOverview(sample);
+      const qualityLabel = qualityOverview.overallStatus === "pass" ? "质量达标" 
+        : qualityOverview.overallStatus === "warning" ? "待改进" : "存在问题";
       lines.push(
         `    ${sIdx + 1}. ${sample.sampleName}（${displayStudent}）` +
-        ` [${sample.magnifications.length} 条视野]`
+        ` [${sample.magnifications.length} 条视野] [${qualityLabel}]`
       );
       if (sample.magnifications.length > 0) {
         const mags = Array.from(
           new Set(sample.magnifications.map(r => r.magnification.toLowerCase()))
         ).sort((a, b) => parseMagnificationValue(a) - parseMagnificationValue(b));
         lines.push(`       倍率: ${mags.join(" → ")}`);
+      }
+      if (qualityOverview.hasIssues) {
+        const issues: string[] = [];
+        if (qualityOverview.missingMagnificationCount > 0) {
+          issues.push(`缺失倍率${qualityOverview.missingMagnificationCount}项`);
+        }
+        if (qualityOverview.emptyDescriptionCount > 0) {
+          issues.push(`空描述${qualityOverview.emptyDescriptionCount}条`);
+        }
+        if (qualityOverview.shortDescriptionCount > 0) {
+          issues.push(`过短描述${qualityOverview.shortDescriptionCount}条`);
+        }
+        if (qualityOverview.nonRecommendedMagnificationCount > 0) {
+          issues.push(`非推荐倍率${qualityOverview.nonRecommendedMagnificationCount}项`);
+        }
+        if (qualityOverview.pendingReviewCount > 0) {
+          issues.push(`待评阅${qualityOverview.pendingReviewCount}条`);
+        }
+        lines.push(`       质量提示: ${issues.join("、")}`);
       }
     });
     lines.push("");

@@ -5,16 +5,18 @@ import type {
   Role,
   FormErrors,
   MagnificationRecord,
-  MagnificationCoverage
+  MagnificationCoverage,
+  SampleQualityOverview
 } from "../types";
 import {
   MAGNIFICATION_GROUPS,
   EMPTY_MAGNIFICATION_FORM
 } from "../constants";
-import { runQualityCheck, getMagnificationCoverage } from "../utils/qualityCheck";
+import { runQualityCheck, getMagnificationCoverage, getSampleQualityOverview } from "../utils/qualityCheck";
 import { formatDate, groupMagnifications } from "../utils/format";
 import { MetricCard } from "./MetricCard";
 import { QualityCheckPanel } from "./QualityCheckPanel";
+import { QualityBadge } from "./QualityBadge";
 import { ConfirmDialog } from "./ConfirmDialog";
 
 interface SampleDetailProps {
@@ -69,6 +71,11 @@ export function SampleDetail({
 
   const coverage = useMemo<MagnificationCoverage>(
     () => getMagnificationCoverage(sample),
+    [sample]
+  );
+
+  const qualityOverview = useMemo<SampleQualityOverview>(
+    () => getSampleQualityOverview(sample),
     [sample]
   );
 
@@ -250,6 +257,107 @@ export function SampleDetail({
         <MetricCard label="染色方式" value={sample.stainingMethod} index={1} />
         <MetricCard label="视野记录数" value={String(sample.magnifications.length)} index={2} />
         <MetricCard label="倍率分组数" value={String(groups.length)} index={0} />
+      </section>
+
+      <section className={`panel quality-overview-panel ${qualityOverview.overallStatus}`}>
+        <div className="section-heading">
+          <div>
+            <p>样本质量概览</p>
+            <h2>
+              整体质量状态
+              <span style={{ marginLeft: "12px" }}>
+                <QualityBadge status={qualityOverview.overallStatus} />
+              </span>
+            </h2>
+          </div>
+        </div>
+
+        <div className="quality-overview-grid">
+          <div className={`quality-overview-item ${qualityOverview.missingMagnificationCount > 0 ? "has-issue error" : ""}`}>
+            <div className="quality-overview-icon">
+              {qualityOverview.missingMagnificationCount > 0 ? "❌" : "✅"}
+            </div>
+            <div className="quality-overview-content">
+              <h4>推荐倍率缺失</h4>
+              <p>
+                {qualityOverview.missingMagnificationCount > 0
+                  ? `缺失 ${qualityOverview.missingMagnificationCount} 项推荐倍率：${qualityOverview.missingMagnifications.join("、")}`
+                  : "所有推荐倍率均已记录"}
+              </p>
+            </div>
+            <div className="quality-overview-count">
+              {qualityOverview.missingMagnificationCount}
+            </div>
+          </div>
+
+          <div className={`quality-overview-item ${qualityOverview.emptyDescriptionCount > 0 ? "has-issue error" : ""}`}>
+            <div className="quality-overview-icon">
+              {qualityOverview.emptyDescriptionCount > 0 ? "❌" : "✅"}
+            </div>
+            <div className="quality-overview-content">
+              <h4>空视野描述</h4>
+              <p>
+                {qualityOverview.emptyDescriptionCount > 0
+                  ? `${qualityOverview.emptyDescriptionCount} 条记录未填写视野描述`
+                  : "所有记录均填写了视野描述"}
+              </p>
+            </div>
+            <div className="quality-overview-count">
+              {qualityOverview.emptyDescriptionCount}
+            </div>
+          </div>
+
+          <div className={`quality-overview-item ${qualityOverview.shortDescriptionCount > 0 ? "has-issue warning" : ""}`}>
+            <div className="quality-overview-icon">
+              {qualityOverview.shortDescriptionCount > 0 ? "⚠️" : "✅"}
+            </div>
+            <div className="quality-overview-content">
+              <h4>过短描述</h4>
+              <p>
+                {qualityOverview.shortDescriptionCount > 0
+                  ? `${qualityOverview.shortDescriptionCount} 条记录描述过于简略（少于 8 个字）`
+                  : "所有记录描述长度符合要求"}
+              </p>
+            </div>
+            <div className="quality-overview-count">
+              {qualityOverview.shortDescriptionCount}
+            </div>
+          </div>
+
+          <div className={`quality-overview-item ${qualityOverview.nonRecommendedMagnificationCount > 0 ? "has-issue warning" : ""}`}>
+            <div className="quality-overview-icon">
+              {qualityOverview.nonRecommendedMagnificationCount > 0 ? "⚠️" : "✅"}
+            </div>
+            <div className="quality-overview-content">
+              <h4>非推荐倍率</h4>
+              <p>
+                {qualityOverview.nonRecommendedMagnificationCount > 0
+                  ? `记录了 ${qualityOverview.nonRecommendedMagnificationCount} 项非推荐倍率：${qualityOverview.nonRecommendedMagnifications.join("、")}`
+                  : "所有记录均使用推荐倍率"}
+              </p>
+            </div>
+            <div className="quality-overview-count">
+              {qualityOverview.nonRecommendedMagnificationCount}
+            </div>
+          </div>
+
+          <div className={`quality-overview-item ${qualityOverview.pendingReviewCount > 0 ? "has-issue warning" : ""}`}>
+            <div className="quality-overview-icon">
+              {qualityOverview.pendingReviewCount > 0 ? "⏳" : "✅"}
+            </div>
+            <div className="quality-overview-content">
+              <h4>待评阅状态</h4>
+              <p>
+                {qualityOverview.pendingReviewCount > 0
+                  ? `${qualityOverview.pendingReviewCount} 条记录等待教师评阅`
+                  : "所有记录均已评阅完成"}
+              </p>
+            </div>
+            <div className="quality-overview-count">
+              {qualityOverview.pendingReviewCount}
+            </div>
+          </div>
+        </div>
       </section>
 
       <section className="panel coverage-panel">

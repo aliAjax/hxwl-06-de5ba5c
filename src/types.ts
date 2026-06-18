@@ -180,3 +180,16 @@ export interface MagnificationCoverage {
   coverageRate: number;
   isComplete: boolean;
 }
+
+export interface SampleQualityOverview {
+  missingMagnifications: string[];
+  missingMagnificationCount: number;
+  emptyDescriptionCount: number;
+  shortDescriptionCount: number;
+  nonRecommendedMagnifications: string[];
+  nonRecommendedMagnificationCount: number;
+  pendingReviewCount: number;
+  totalRecords: number;
+  overallStatus: QualityOverallStatus;
+  hasIssues: boolean;
+}
