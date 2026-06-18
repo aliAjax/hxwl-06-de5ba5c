@@ -210,9 +210,9 @@ export const getMagnificationCoverage = (
 
   const recorded = Array.from(recordedSet);
   const missing = recommended.filter(mag => !recordedSet.has(mag.toLowerCase()));
-  const nonRecommended = recorded.filter(
-    mag => !recommended.includes(mag.toLowerCase())
-  );
+  const nonRecommended = recommended.length > 0
+    ? recorded.filter(mag => !recommended.includes(mag.toLowerCase()))
+    : [];
 
   const coverageRate =
     recommended.length > 0
